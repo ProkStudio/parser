@@ -1,0 +1,126 @@
+name: Build and verify Parser
+on:
+  push:
+    branches: [main, feat/noir-windows-app]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: parser-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python tools/restore_sources.py
+      - run: python -m pip install .
+      - run: python -m unittest discover -s tests -v
+      - run: python -m compileall -q parser_app
+  guide:
+    name: Browser checks and illustrated guide
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python tools/restore_sources.py
+      - run: python -m pip install Pillow==11.2.1
+      - run: npm install --no-save playwright@1.51.1
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/browser.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guide-images
+          path: parser_app/static/guide/*.webp
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-checks
+          path: .qa/
+  windows:
+    name: MSI install, launch and uninstall
+    needs: [unit, guide]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/restore_sources.py
+      - run: python -m pip install . cx_Freeze==8.6.4 Pillow==11.2.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: guide-images
+          path: parser_app/static/guide
+      - run: python tools/build_icon.py
+      - run: python tools/freeze.py bdist_msi
+      - run: ./tools/smoke-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Parser-Windows-x64
+          path: dist/*
+          if-no-files-found: error
+  preview:
+    name: Publish tested Windows preview
+    needs: windows
+    if: github.ref == 'refs/heads/feat/noir-windows-app'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python tools/restore_sources.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: Parser-Windows-x64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: guide-images
+          path: parser_app/static/guide
+      - name: Commit verified sources after the one-time transport bootstrap
+        if: hashFiles('.bootstrap/source.sha256') != ''
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitignore README.md RELEASE_NOTES.md desktop.py pyproject.toml parser_app tests tools
+          git add -f parser_app/static/guide/*.webp
+          git rm -r .bootstrap
+          git commit -m 'feat: add black-gold Parser with illustrated guide and MSI'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Record installer verification on the final source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/$(git rev-parse HEAD)" \
+            -f state=success -f context='Parser / Windows MSI' \
+            -f description='Unit/browser tests, MSI install, launch and uninstall passed' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
+      - name: Publish prerelease, never modify the main branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "parser-preview-${GITHUB_RUN_NUMBER}"
+          --target "$(git rev-parse HEAD)" --prerelease
+          --title "Parser 0.1.0 — Windows preview"
+          --notes-file RELEASE_NOTES.md
+          dist/*.msi dist/SHA256SUMS.txt dist/smoke-report.json
