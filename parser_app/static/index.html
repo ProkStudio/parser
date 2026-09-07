@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Parser</title><link rel="stylesheet" href="/static/styles.css"><script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">P</span><div><strong>Parser</strong><span>Telegram</span></div></div>
+    <nav aria-label="Основные разделы">
+      <button class="nav-button selected" data-view="accounts" aria-current="page"><span aria-hidden="true" class="nav-icon">◎</span><span>Аккаунты</span></button>
+      <button class="nav-button" data-view="proxies"><span aria-hidden="true" class="nav-icon">⇄</span><span>Прокси</span></button>
+      <button class="nav-button" data-view="tasks"><span aria-hidden="true" class="nav-icon">≡</span><span>Задачи</span></button>
+    </nav>
+    <div class="sidebar-bottom"><span class="local-label">● Только на этом устройстве</span><button id="helpButton" class="quiet">Как пользоваться</button><span id="version">Parser 0.2.0</span></div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div id="alert" class="notice error" role="alert" hidden><span id="alertText"></span><button id="dismissAlert" class="quiet" aria-label="Закрыть ошибку">×</button></div>
+    <div id="cooldownNotice" class="notice" role="status" hidden></div>
+    <section id="view-accounts" class="view" aria-labelledby="accountsTitle">
+      <header class="page-head"><div><p class="eyebrow">ПОДКЛЮЧЕНИЕ</p><h1 id="accountsTitle">Аккаунты</h1><p class="subtitle">Ваши аккаунты и их подключение к Telegram.</p></div><button id="addAccount" class="primary">＋ Добавить аккаунт</button></header>
+      <p class="section-note">Сессии остаются на компьютере. После импорта нажмите «Проверить».</p>
+      <div id="accountList" class="list"><div class="empty"><span class="empty-icon" aria-hidden="true">◎</span><h2>Начните с аккаунта</h2><p>Импортируйте .session, выберите папку tdata<br>или войдите по номеру телефона.</p></div></div>
+      <div class="footnote">Импорт не отправляет файлы на сервер. Используйте только свои аккаунты.</div>
+    </section>
+    <section id="view-proxies" class="view" aria-labelledby="proxiesTitle" hidden>
+      <header class="page-head"><div><p class="eyebrow">СЕТЬ</p><h1 id="proxiesTitle">Прокси</h1><p class="subtitle">Добавьте соединение и назначьте его нужному аккаунту.</p></div><button id="addProxy" class="primary">＋ Добавить прокси</button></header>
+      <p class="section-note">SOCKS5 и HTTP CONNECT. Если прокси недоступен, прямого подключения не будет.</p>
+      <div id="proxyList" class="list"></div>
+    </section>
+    <section id="view-tasks" class="view" aria-labelledby="tasksTitle" hidden>
+      <header class="page-head"><div><p class="eyebrow">СБОР ДАННЫХ</p><h1 id="tasksTitle">Задачи</h1><p class="subtitle">Создавайте сборы и продолжайте с сохранённой позиции.</p></div><div class="actions"><button id="showResults">Результаты</button><button id="newTask" class="primary">＋ Новая задача</button></div></header>
+      <p class="section-note">У каждой задачи свой аккаунт. Очередь выполняется последовательно, с соблюдением FloodWait.</p>
+      <div id="allJobs" class="list"></div>
+      <div class="pagination"><button id="prevJobs" class="quiet">← Назад</button><span id="jobsPageLabel">Страница 1</span><button id="nextJobs" class="quiet">Дальше →</button></div>
+    </section>
+  </main>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<dialog id="accountDialog" aria-labelledby="addAccountTitle">
+  <div class="dialog-head"><h2 id="addAccountTitle">Добавить аккаунт</h2><button class="close" data-close="accountDialog" aria-label="Закрыть">×</button></div>
+  <p class="muted">Выберите способ. Файлы не нужно загружать в GitHub или отправлять кому-либо.</p>
+  <div class="method-options"><button data-method="session" class="method selected"><strong>.session</strong><span>Файлы Telethon</span></button><button data-method="tdata" class="method"><strong>tdata</strong><span>Telegram Desktop</span></button><button data-method="phone" class="method"><strong>По номеру</strong><span>Новый вход</span></button></div>
+  <p data-error class="form-error" role="alert" hidden></p>
+  <form id="sessionForm" data-import="session">
+    <p class="help">Выберите один или несколько файлов Telethon .session. Pyrogram и StringSession не поддерживаются. Закройте программу, которая использует эти файлы.</p>
+    <div class="form-grid"><label>API ID<input id="sessionApiId" inputmode="numeric" required autocomplete="off"></label><label>API Hash<input id="sessionApiHash" type="password" minlength="32" maxlength="32" required autocomplete="off"></label></div>
+    <p class="help">Укажите параметры приложения, с которыми создана сессия. Файл .session не содержит API ID и API Hash.</p>
+    <label class="checkbox"><input type="checkbox" required>Это мои аккаунты, исходная программа закрыта</label>
+    <button id="importSession" type="submit" class="primary wide">Выбрать файлы .session</button>
+  </form>
+  <form id="tdataForm" data-import="tdata" hidden>
+    <p class="help">Закройте Telegram Desktop. Выберите саму папку <code>tdata</code>, внутри которой есть <code>key_data</code>. ZIP сначала распакуйте.</p>
+    <label>Локальный код-пароль Telegram Desktop<input id="tdataPasscode" type="password" autocomplete="off" maxlength="256" placeholder="Оставьте пустым, если не установлен"></label>
+    <p class="help">Это код блокировки приложения, не облачный пароль 2FA. Ключи API вручную не нужны.</p>
+    <label class="checkbox"><input type="checkbox" required>Это мои аккаунты, Telegram Desktop закрыт</label>
+    <button id="importTdata" type="submit" class="primary wide">Выбрать папку tdata</button>
+    <p class="help warning">Экспериментальный импорт через opentele: новые форматы tdata могут не поддерживаться. Надёжный запасной способ — вход по номеру.</p>
+  </form>
+  <div data-import="phone" hidden><p>Войдите с API ID и API Hash, номером телефона и кодом из Telegram. Пароль 2FA потребуется, если он включён.</p><button id="beginPhone" class="primary wide">Продолжить по номеру</button></div>
+  <p id="nativeHint" class="help" hidden>Выбор файлов доступен в отдельном окне Parser. Этот режим браузера предназначен только для разработки.</p>
+  <div id="importReport" class="import-report" role="status" hidden></div>
+</dialog>
+
+<dialog id="authDialog" aria-labelledby="authTitle">
+  <div class="dialog-head"><h2 id="authTitle">Подключение аккаунта</h2><button class="close" data-close="authDialog" aria-label="Закрыть">×</button></div>
+  <p data-error class="form-error" role="alert" hidden></p><p id="authError" class="help warning" hidden></p>
+  <form id="configForm" data-auth-step="settings"><p class="help">Получите ключи вашего приложения на <a href="https://my.telegram.org" target="_blank" rel="noreferrer">my.telegram.org ↗</a>. Они сохраняются только локально.</p><label>API ID<input id="apiId" inputmode="numeric" required autocomplete="off"></label><label>API Hash<input id="apiHash" type="password" required minlength="32" maxlength="32" autocomplete="off"></label><button class="primary wide" type="submit">Сохранить и продолжить</button></form>
+  <form id="phoneForm" data-auth-step="phone" hidden><label>Номер телефона<input id="phone" type="tel" placeholder="+7…" required autocomplete="off"></label><button class="primary wide" type="submit">Получить код</button><button class="quiet" type="button" id="editConfig">Изменить API-параметры</button></form>
+  <form id="codeForm" data-auth-step="code" hidden><label>Код из Telegram<input id="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10"></label><button class="primary wide" type="submit">Подтвердить код</button><button id="backToPhone" type="button" class="quiet">Запросить другой код</button></form>
+  <form id="passwordForm" data-auth-step="password" hidden><label>Облачный пароль 2FA<input id="password" type="password" required autocomplete="off" maxlength="256"></label><button class="primary wide" type="submit">Подключить аккаунт</button></form>
+  <div data-auth-step="ready" hidden><div class="success-note">Аккаунт подключён</div><p id="accountName"></p><button class="primary wide" data-close="authDialog">Готово</button></div>
+</dialog>
+
+<dialog id="proxyDialog" aria-labelledby="proxyTitle">
+  <div class="dialog-head"><h2 id="proxyTitle">Добавить прокси</h2><button class="close" data-close="proxyDialog" aria-label="Закрыть">×</button></div>
+  <p data-error class="form-error" role="alert" hidden></p>
+  <form id="proxyForm"><label>Название<input id="proxyLabel" maxlength="80" placeholder="Например, рабочий"></label><div class="form-grid"><label>Тип<select id="proxyType"><option value="socks5">SOCKS5</option><option value="http">HTTP CONNECT</option></select></label><label>Порт<input id="proxyPort" type="number" min="1" max="65535" required placeholder="1080"></label></div><label>Адрес сервера<input id="proxyHost" required placeholder="IP или имя сервера, без порта" maxlength="253"></label><div class="form-grid"><label>Логин<input id="proxyUser" autocomplete="off" maxlength="255" placeholder="Необязательно"></label><label>Пароль<input id="proxyPassword" type="password" autocomplete="off" maxlength="255" placeholder="Необязательно"></label></div><p class="help">Проверка устанавливает туннель до Telegram, но не входит в аккаунт. Пароль не возвращается в интерфейс.</p><button class="primary wide" type="submit">Сохранить прокси</button></form>
+</dialog>
+
+<dialog id="taskDialog" aria-labelledby="taskTitle">
+  <div class="dialog-head"><h2 id="taskTitle">Новая задача</h2><button class="close" data-close="taskDialog" aria-label="Закрыть">×</button></div><p data-error class="form-error" role="alert" hidden></p>
+  <form id="jobForm"><label>Аккаунт<select id="jobAccount" required></select></label><label>Каналы и группы<textarea id="sources" rows="3" placeholder="@channel_name&#10;https://t.me/channel_name" required></textarea></label><p class="help">По одному источнику на строку, до 20. Только доступные этому аккаунту каналы и группы; без обхода ограничений.</p>
+    <details class="advanced"><summary>Фильтры и лимиты</summary><label>Лимит просмотра<input id="limit" type="number" min="1" max="50000" value="1000" required></label><div class="form-grid"><label>С даты (UTC)<input id="dateFrom" type="date"></label><label>По дату (UTC)<input id="dateTo" type="date"></label></div><label>Содержит фразы<input id="include" placeholder="Через запятую"></label><label>Исключает фразы<input id="exclude" placeholder="Через запятую"></label><label>Тип сообщений<select id="media"><option value="any">Все</option><option value="text">Текст</option><option value="photo">Фото</option><option value="video">Видео</option><option value="audio">Аудио</option><option value="document">Документы</option><option value="other">Другое медиа</option></select></label><label class="checkbox"><input type="checkbox" id="incremental" checked>Продолжить с сохранённой позиции этого аккаунта</label></details>
+    <button class="primary wide" id="createJob" type="submit">Добавить в очередь</button>
+  </form>
+</dialog>
+
+<dialog id="resultsDialog" class="large-dialog" aria-labelledby="resultsTitle">
+  <div class="dialog-head"><h2 id="resultsTitle">Результаты</h2><button class="close" data-close="resultsDialog" aria-label="Закрыть">×</button></div><p data-error class="form-error" role="alert" hidden></p>
+  <div class="result-tools"><label>Поиск<input id="search" type="search" maxlength="200" placeholder="Текст сообщения"></label><label>Источник<select id="sourceFilter"><option value="">Все источники</option></select></label></div>
+  <div class="result-actions"><span id="resultCount" class="muted"></span><div class="actions"><label class="sr-only" for="exportFormat">Формат экспорта</label><select id="exportFormat"><option value="csv">CSV</option><option value="json">JSON</option><option value="jsonl">JSONL</option></select><button id="exportButton">Экспортировать</button></div></div>
+  <div id="messageList" class="messages"></div><div class="pagination"><button id="prevPage" class="quiet">← Назад</button><span id="pageLabel"></span><button id="nextPage" class="quiet">Дальше →</button></div>
+</dialog>
+
+<dialog id="view-guide" aria-labelledby="guideTitle"><div class="dialog-head"><h2 id="guideTitle">Быстрый старт</h2><button class="close" data-close="view-guide" aria-label="Закрыть">×</button></div>
+  <ol class="guide"><li><strong>Аккаунты → Добавить аккаунт</strong><p>Выберите .session, папку tdata или вход по номеру. Импорт только копирует ключ в локальное хранилище. Нажмите «Проверить» для подключения.</p></li><li><strong>Прокси → Добавить прокси</strong><p>При необходимости добавьте SOCKS5 или HTTP CONNECT. Назначьте его в строке аккаунта через «Настройки». Прокси необязателен.</p></li><li><strong>Задачи → Новая задача</strong><p>Выберите проверенный аккаунт и источники. Фильтры спрятаны в «Фильтры и лимиты». Результаты и экспорт доступны здесь же.</p></li></ol>
+  <details class="advanced"><summary>Безопасность и ограничения</summary><p>Импортированная сессия — тот же доступ, что и в исходном приложении. Не используйте одну копию одновременно на разных устройствах. Удаление аккаунта из Parser не отзывает сессию в Telegram. При утечке завершите её в Telegram → Настройки → Устройства.</p><p>tdata читается через opentele, который автор больше не поддерживает. Совместимость не гарантируется. Если папка не читается, используйте вход по номеру, не отключая 2FA.</p><p>Программа только читает сообщения каналов и групп. Не собирает телефоны участников, не рассылает сообщения. Отдельного обхода лимитов или переключения аккаунтов для обхода FloodWait нет.</p></details>
+  <p class="help">При закрытии окна текущая задача сохраняется на паузе. Возобновите её после следующего запуска.</p><p class="help">Локальные данные: <code id="dataDirectory"></code></p>
+</dialog>
+
+<dialog id="confirmDialog" aria-labelledby="confirmTitle"><div class="dialog-head"><h2 id="confirmTitle"></h2></div><p id="confirmDescription"></p><div class="dialog-actions"><button id="confirmCancel">Назад</button><button id="confirmOk" class="danger">Подтвердить</button></div></dialog>
+</body></html>

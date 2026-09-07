@@ -1,0 +1,12 @@
+[
+  {
+    "path": "parser_app/static/app.js",
+    "line": 55,
+    "text": "  if(!accounts.length){empty(target,\"Начните с аккаунта\",\"Импо<U+FFFD><U+FFFD>тируйте .session, выберите папку tdata или войдите по номеру телефона.\");return;}"
+  },
+  {
+    "path": "parser_app/static/app.js",
+    "line": 80,
+    "text": "    actions.append(button(\"Проверить\",\"\",async()=>{const result=await post(\"/api/proxies/\"+proxy.id+\"/check\");proxyChecks.set(proxy.id,\"Туннель доступен · \"+num(result.latency_ms)+\" мс. Авторизация аккаунта не проверялась.\");document.activeElement?.blur();renderProxies();}),button(\"Удалить\",\"quiet danger-text\",async()=>{if(!await confirmAction(\"Удалить прокси?\",\"Сначала отключите этот прокси у аккаунтов, которым <U+FFFD><U+FFFD>н назначен.\",\"Удалить\"))return;await post(\"/api/proxies/\"+proxy.id+\"/remove\",{confirm:\"remove-proxy\"});document.activeElement?.blur();await refresh();}));top.append(text,actions);row.append(top);if(proxyChecks.has(proxy.id))row.append(node(\"p\",\"meta\",proxyChecks.get(proxy.id)));return row;}));"
+  }
+]

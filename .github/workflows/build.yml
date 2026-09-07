@@ -1,0 +1,220 @@
+name: Build and verify Parser
+on:
+  push:
+    branches: [main, feat/noir-windows-app]
+    paths-ignore: [.github/workflows/diagnose.yml, '.ci/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: parser-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  sources:
+    name: Verified source tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      checks: write
+    outputs:
+      sha: ${{ steps.sources.outputs.sha }}
+      check_id: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Restore the checksummed text-only transfer once
+        id: sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G '.bootstrap/source-*.b64' > /dev/null; then
+            test "$GITHUB_REF" = 'refs/heads/feat/noir-windows-app'
+            git diff --quiet 9f5d761fe83c53db14d3ea83df35e8eac2f35cbf HEAD -- .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools
+            python tools/restore_sources.py
+            # Correct the two damaged labels found in the audited transfer.
+            python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").replace("Импо\ufffd\ufffdтируйте", "Импортируйте").replace("которым \ufffd\ufffdн назначен.", "которым он назначен."), encoding="utf-8", newline="") for p in (Path("parser_app/static/app.js"), Path("parser_app/static/index.html"))]'
+            python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"'
+            git add .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools
+            git rm -- .bootstrap/source-*.b64 .bootstrap/source.sha256
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'feat: desktop accounts, proxies and tasks with local session import'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git archive --format=zip --prefix=Parser-0.2.0/ -o "$RUNNER_TEMP/Parser-0.2.0-source.zip" HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Parser-0.2.0-source
+          path: ${{ runner.temp }}/Parser-0.2.0-source.zip
+      - name: Attach verification to the actual source commit
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = await github.rest.checks.create({
+              ...context.repo,
+              name: 'Parser desktop verification',
+              head_sha: '${{ steps.sources.outputs.sha }}',
+              status: 'in_progress',
+              details_url: 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
+              output: {title: 'Verifying desktop sources', summary: 'Offline tests, three-tab interface scenarios, and Windows installer/native-window smoke checks. No real Telegram credentials are used.'}
+            });
+            return result.data.id;
+  unit:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: sources
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sources.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install and run offline tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*") if p.suffix in {".js", ".css", ".html"}), "Unexpected damaged UI text"'
+          python -m pip install . 2>&1 | tee "$RUNNER_TEMP/parser-unit.log"
+          python -m unittest discover -s tests -v 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"
+          python -m compileall -q parser_app 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-logs-${{ matrix.os }}-${{ matrix.python }}
+          path: ${{ runner.temp }}/parser-unit.log
+  interface:
+    name: Three tabs and offline browser scenarios
+    needs: sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sources.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify desktop and narrow-window layouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright@1.51.1 2>&1 | tee "$RUNNER_TEMP/parser-interface.log"
+          npx playwright install --with-deps chromium 2>&1 | tee -a "$RUNNER_TEMP/parser-interface.log"
+          node tests/browser.mjs 2>&1 | tee -a "$RUNNER_TEMP/parser-interface.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-checks
+          path: .qa/
+          include-hidden-files: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-logs-interface
+          path: ${{ runner.temp }}/parser-interface.log
+  windows:
+    name: Native window and Windows MSI
+    needs: [sources, unit, interface]
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sources.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and smoke-test the installed desktop application
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install ".[desktop,tdata]" cx_Freeze==8.6.4 Pillow==11.2.1 2>&1 | tee "$RUNNER_TEMP/parser-windows.log"
+          python -m unittest discover -s tests -v 2>&1 | tee -a "$RUNNER_TEMP/parser-windows.log"
+          python tools/build_icon.py 2>&1 | tee -a "$RUNNER_TEMP/parser-windows.log"
+          python tools/freeze.py bdist_msi 2>&1 | tee -a "$RUNNER_TEMP/parser-windows.log"
+          pwsh -NoLogo -NoProfile -File tools/smoke-windows.ps1 2>&1 | tee -a "$RUNNER_TEMP/parser-windows.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Parser-Windows-x64
+          path: |
+            dist/*
+            ${{ runner.temp }}/parser-install.log
+            ${{ runner.temp }}/parser-uninstall.log
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-logs-windows
+          path: ${{ runner.temp }}/parser-windows.log
+  verification:
+    name: Publish verification result
+    if: ${{ always() && needs.sources.result == 'success' }}
+    needs: [sources, unit, interface, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      checks: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verification-logs-*
+          path: verification-logs
+      - uses: actions/github-script@v7
+        env:
+          UNIT_RESULT: ${{ needs.unit.result }}
+          INTERFACE_RESULT: ${{ needs.interface.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const states = {unit: process.env.UNIT_RESULT, interface: process.env.INTERFACE_RESULT, windows: process.env.WINDOWS_RESULT};
+            const values = Object.values(states);
+            const conclusion = values.every(value => value === 'success') ? 'success' : values.includes('failure') ? 'failure' : 'cancelled';
+            const logFiles = [];
+            function walk(dir) {
+              if (!fs.existsSync(dir)) return;
+              for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+                const name = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(name);
+                else if (entry.isFile() && name.endsWith('.log')) logFiles.push(name);
+              }
+            }
+            walk('verification-logs');
+            let text = 'Offline test/build logs only; no live Telegram account was used.\n\n';
+            for (const name of logFiles.sort()) {
+              const tail = fs.readFileSync(name, 'utf8').slice(-5000).replace(/`/g, "'");
+              text += `### ${name}\n\n\`\`\`text\n${tail}\n\`\`\`\n\n`;
+            }
+            await github.rest.checks.update({
+              ...context.repo,
+              check_run_id: Number('${{ needs.sources.outputs.check_id }}'),
+              status: 'completed', conclusion,
+              completed_at: new Date().toISOString(),
+              output: {
+                title: `Desktop verification: ${conclusion}`,
+                summary: `Unit tests: **${states.unit}**. Interface: **${states.interface}**. Windows installer/native window: **${states.windows}**.\n\nArtifacts and complete logs are linked from this check. No automatic release or main-branch merge.`,
+                text
+              }
+            });
+# A release requires review of the native smoke results and third-party licenses.

@@ -1,0 +1,48 @@
+name: Inspect desktop build diagnostics
+on:
+  push:
+    branches: [feat/noir-windows-app]
+    paths: [.github/workflows/diagnose.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/noir-windows-app
+      - name: Record offline build diagnostics without changing application code
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ci
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --branch feat/noir-windows-app --workflow build.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+          gh run view "$run" --repo "$GITHUB_REPOSITORY" --json url,status,conclusion,headSha > .ci/desktop-build-diagnostics.txt
+          gh run view "$run" --repo "$GITHUB_REPOSITORY" --log-failed > "$RUNNER_TEMP/parser-failed.log"
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          text = Path(os.environ['RUNNER_TEMP'], 'parser-failed.log').read_text(encoding='utf-8')
+          lines = re.sub(r'\x1b\[[0-9;]*m', '', text).splitlines()
+          selected = set()
+          for index, line in enumerate(lines):
+              if any(word in line for word in ('Error', 'ERROR', 'error:', 'FAIL', 'Traceback', 'Exception')):
+                  selected.update(range(max(0, index-7), min(len(lines), index+12)))
+          if not selected:
+              selected.update(range(max(0, len(lines)-80), len(lines)))
+          with Path('.ci/desktop-build-diagnostics.txt').open('a', encoding='utf-8') as output:
+              output.write('\n\n' + '\n'.join(lines[index] for index in sorted(selected)))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .ci/desktop-build-diagnostics.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'ci: record desktop verification diagnostics [skip ci]'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+# Diagnostic request: desktop-0.2-check-2
