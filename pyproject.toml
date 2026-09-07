@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parser-telegram-desktop"
+version = "0.1.0"
+description = "Local-first, read-only Telegram message workspace"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["Telethon==1.40.0"]
+
+[project.scripts]
+parser-app = "parser_app.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["parser_app*"]
+
+[tool.setuptools.package-data]
+parser_app = ["static/*.html", "static/*.css", "static/*.js", "static/guide/*.webp"]
