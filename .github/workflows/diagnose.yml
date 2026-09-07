@@ -1,0 +1,31 @@
+name: Inspect build diagnostics
+on:
+  push:
+    branches: [feat/noir-windows-app]
+    paths: [.github/workflows/diagnose.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python tools/restore_sources.py
+      - name: Read the failed browser check and keep readable source files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .ci
+          gh run view 34140296864 --repo "$GITHUB_REPOSITORY" --log-failed > .ci/previous-run.log
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitignore README.md RELEASE_NOTES.md desktop.py pyproject.toml parser_app tests tools .ci/previous-run.log
+          git rm -r --ignore-unmatch .bootstrap
+          git commit -m 'build: materialize verified Parser sources and CI diagnostics'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
