@@ -1,0 +1,34 @@
+Verified source tree	Restore the checksummed text-only transfer once	﻿2026-09-07T18:20:09.7108553Z ##[group]Run set -euo pipefail
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7109423Z ^[[36;1mset -euo pipefail^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7110137Z ^[[36;1mif compgen -G '.bootstrap/source-*.b64' > /dev/null; then^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7110987Z ^[[36;1m  test "$GITHUB_REF" = 'refs/heads/feat/noir-windows-app'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7112134Z ^[[36;1m  git diff --quiet 9f5d761fe83c53db14d3ea83df35e8eac2f35cbf HEAD -- . ':(exclude).bootstrap' ':(exclude).github/workflows/build.yml'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7113173Z ^[[36;1m  python tools/restore_sources.py^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7113917Z ^[[36;1m  # Correct the single damaged label found in final visual QA.^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7115844Z ^[[36;1m  python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").replace("Импо\ufffd\ufffdтируйте", "Импортируйте"), encoding="utf-8", newline="") for p in (Path("parser_app/static/app.js"), Path("parser_app/static/index.html"))]'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7117856Z ^[[36;1m  python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7119413Z ^[[36;1m  git add .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7120708Z ^[[36;1m  git rm -- .bootstrap/source-*.b64 .bootstrap/source.sha256^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7121494Z ^[[36;1m  git config user.name 'github-actions[bot]'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7122342Z ^[[36;1m  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7123351Z ^[[36;1m  git commit -m 'feat: desktop accounts, proxies and tasks with local session import'^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7124220Z ^[[36;1m  git push origin "HEAD:${GITHUB_REF_NAME}"^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7125177Z ^[[36;1mfi^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7125775Z ^[[36;1mecho "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7126725Z ^[[36;1mgit archive --format=zip --prefix=Parser-0.2.0/ -o "$RUNNER_TEMP/Parser-0.2.0-source.zip" HEAD^[[0m
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7295166Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7295989Z env:
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7296601Z   pythonLocation: /opt/hostedtoolcache/Python/3.13.15/x64
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7297474Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.13.15/x64/lib/pkgconfig
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7298296Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7299052Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7299805Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7300567Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.13.15/x64/lib
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7301235Z ##[endgroup]
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.3373503Z Restored 29 verified source files
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4147635Z Traceback (most recent call last):
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4238854Z   File "<string>", line 1, in <module>
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4239791Z     from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4240651Z                                      ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4241125Z AssertionError: Unexpected damaged UI text
+Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4301716Z ##[error]Process completed with exit code 1.
