@@ -45,6 +45,7 @@ class TelegramGateway:
     def __init__(self, directory: Path):
         self.directory = directory
         self.client = None
+        self.proxy = None
         self._auth_lock = asyncio.Lock()
         self._phone = self._code_hash = None
         self._code_at = self._next_code_at = 0.0
@@ -82,6 +83,7 @@ class TelegramGateway:
                 raise AppError("Не установлен Telethon. Выполните установку зависимостей по README и перезапустите Parser.", 503, "dependency") from None
             self.types, self.utils = types, utils
             self.client = TelegramClient(str(self.directory / "telegram"), self.config["api_id"], self.config["api_hash"],
+                                         proxy=self.proxy, receive_updates=False,
                                          timeout=15, connection_retries=2, request_retries=0,
                                          flood_sleep_threshold=0, device_model="Parser Desktop", app_version=VERSION)
         if not self.client.is_connected():
@@ -193,7 +195,21 @@ class TelegramGateway:
     async def resolve(self, reference: str):
         try:
             client = await self._open()
-            entity = await client.get_entity(int(reference) if reference.startswith("-100") else reference)
+            target = int(reference) if reference.startswith("-100") else reference
+            try:
+                entity = await client.get_entity(target)
+            except ValueError:
+                if not isinstance(target, int):
+                    raise
+                # Imported sessions intentionally have no entity/access-hash cache.
+                # Resolve accessible private groups from the user's own dialogs.
+                entity = None
+                async for dialog in client.iter_dialogs(limit=500):
+                    if self.utils.get_peer_id(dialog.entity) == target:
+                        entity = dialog.entity
+                        break
+                if entity is None:
+                    raise AppError("Группа не найдена среди 500 доступных диалогов. Проверьте ID и участие аккаунта в группе.")
             if not isinstance(entity, (self.types.Channel, self.types.Chat)):
                 raise AppError("Поддерживаются только каналы и группы, не личные переписки.")
             return {"id": self.utils.get_peer_id(entity), "title": entity.title, "username": getattr(entity, "username", None) or "", "entity": entity}

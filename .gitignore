@@ -10,6 +10,11 @@ dist/
 *.sqlite3*
 config.json
 config.tmp
+accounts.json
+accounts.tmp
+accounts/
+tdata/
+**/key_data*
 instance.lock
 *.log
 *.log.*
@@ -18,5 +23,7 @@ node_modules/
 launch.json
 launch.tmp
 smoke-test.json
+window-smoke.json
 parser_app/static/guide/
 tools/parser.ico
+*.parser-tmp

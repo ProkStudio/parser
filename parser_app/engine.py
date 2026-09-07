@@ -24,7 +24,7 @@ class Engine:
         await self.gateway.initialize()
         while True:
             try:
-                if self.gateway.snapshot()["authorized"] and self.store.cooldown() <= time.time():
+                if (hasattr(self.gateway, "prepare_job") or self.gateway.snapshot()["authorized"]) and self.store.cooldown() <= time.time():
                     job = self.store.claim()
                     if job:
                         await self.run_job(job)
@@ -58,6 +58,8 @@ class Engine:
                 try:
                     if stop():
                         return
+                    if hasattr(self.gateway, "prepare_job"):
+                        await self.gateway.prepare_job(job)
                     source = await self.gateway.resolve(job["source_key"])
                     upper = job["upper_id"] if job["upper_id"] is not None else await self.gateway.latest_id(source)
                     job = self.store.prepare(job_id, source, upper)

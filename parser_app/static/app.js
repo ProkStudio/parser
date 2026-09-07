@@ -1,391 +1,145 @@
 "use strict";
-
-const $ = (id) => document.getElementById(id);
-const views = new Set(["overview", "messages", "jobs", "connection", "guide"]);
-const labels = { queued: "В очереди", running: "Собираем", waiting: "Ждём Telegram", paused: "На паузе", cancelled: "Отменено", failed: "Ошибка", completed: "Завершено" };
-const mediaLabels = { text: "Текст", photo: "Фото", video: "Видео", audio: "Аудио", document: "Документ", other: "Медиа" };
-let token = "", currentView = "overview", status = null, page = 1, jobsOffset = 0;
-let stopped = false, pollingTimer;
-let authOverride = null, refreshing = false, messageRequest = 0, toastTimer, searchTimer;
-const busyForms = new Set();
-const number = (value) => new Intl.NumberFormat("ru-RU").format(value || 0);
-const date = (value) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(new Date(value));
-
-function node(tag, className = "", text = "") {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text !== "") element.textContent = String(text);
-  return element;
-}
-
+const $ = id => document.getElementById(id);
+const labels = {queued:"В очереди",running:"Собираем",waiting:"Ждём Telegram",paused:"На паузе",cancelled:"Отменена",failed:"Ошибка",completed:"Завершена"};
+const kinds = {session:"Telethon .session",tdata:"Telegram Desktop",login:"Вход по номеру"};
+const num = value => new Intl.NumberFormat("ru-RU").format(value || 0);
+const date = value => new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}).format(new Date(value));
+let token="", currentView="accounts", accounts=[], proxies=[], status=null, authId="", authState=null;
+let page=1, jobsOffset=0, refreshing=false, searchTimer, toastTimer, messageRequest=0;
+const signatures = new Map(), proxyChecks = new Map();
+function node(tag,cls="",text="") { const el=document.createElement(tag); if(cls)el.className=cls; el.textContent=String(text); return el; }
+function button(label,cls,action) { const el=node("button",cls,label); el.type="button"; el.onclick=()=>withBusy(el,action); return el; }
 function showError(error) {
-  $("alertText").textContent = error.message || "Не удалось выполнить действие.";
-  $("alert").hidden = false;
+  const message=error.message || String(error);
+  const open=[...document.querySelectorAll("dialog[open]")].reverse().find(d=>d.querySelector("[data-error]"));
+  if(open) { const box=open.querySelector("[data-error]"); box.textContent=message; box.hidden=false; box.scrollIntoView({block:"nearest"}); }
+  else { $("alertText").textContent=message; $("alert").hidden=false; }
 }
-
-function notify(message) {
-  clearTimeout(toastTimer);
-  $("toast").textContent = message;
-  $("toast").hidden = false;
-  toastTimer = setTimeout(() => { $("toast").hidden = true; }, 5000);
-}
-
-async function api(path, options = {}) {
-  const { body, ...rest } = options;
+function notify(message) { clearTimeout(toastTimer); $("toast").textContent=message; $("toast").hidden=false; toastTimer=setTimeout(()=>{$("toast").hidden=true;},5500); }
+function openDialog(id) { const dialog=$(id); const error=dialog.querySelector("[data-error]"); if(error) error.hidden=true; if(!dialog.open)dialog.showModal(); }
+async function api(path,{body,raw,...options}={}) {
   let response;
-  try {
-    response = await fetch(path, { ...rest, cache: "no-store", credentials: "omit", headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
-  } catch {
-    throw new Error("Нет связи с локальным приложением. Убедитесь, что Parser запущен, и обновите страницу.");
-  }
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const error = new Error(payload.error || "Не удалось выполнить запрос.");
-    error.code = payload.code;
-    throw error;
-  }
-  return options.raw ? response : response.json();
+  try { response=await fetch(path,{...options,cache:"no-store",credentials:"omit",headers:{Authorization:"Bearer "+token,...(body!==undefined?{"Content-Type":"application/json"}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})}); }
+  catch { throw new Error("Нет связи с локальным приложением. Перезапустите Parser."); }
+  if(!response.ok) {const error=await response.json().catch(()=>({})); throw new Error(error.error || "Не удалось выполнить запрос.");}
+  return raw?response:response.json();
 }
-
-function empty(container, title, description, symbol = "⌁") {
-  const state = node("div", "empty-state");
-  const icon = node("span", "empty-symbol", symbol);
-  icon.setAttribute("aria-hidden", "true");
-  state.append(icon, node("h3", "", title), node("p", "", description));
-  container.replaceChildren(state);
+const post=(path,body={})=>api(path,{method:"POST",body});
+async function withBusy(el,action) {
+  if(el.disabled)return;
+  const label=el.textContent; el.disabled=true; el.textContent="Подождите…";
+  const error=el.closest("dialog")?.querySelector("[data-error]"); if(error)error.hidden=true;
+  try {await action();}catch(err){showError(err);}finally{el.disabled=false;el.textContent=label;}
 }
-
+function confirmAction(title,description,label) {
+  $("confirmTitle").textContent=title; $("confirmDescription").textContent=description; $("confirmOk").textContent=label;
+  openDialog("confirmDialog"); $("confirmCancel").focus();
+  return new Promise(resolve=>{const finish=value=>{$("confirmDialog").close();resolve(value);};$("confirmCancel").onclick=()=>finish(false);$("confirmOk").onclick=()=>finish(true);$("confirmDialog").oncancel=event=>{event.preventDefault();finish(false);};});
+}
+function empty(target,title,text,symbol="◎") {const box=node("div","empty");box.append(node("span","empty-icon",symbol),node("h2","",title),node("p","",text));target.replaceChildren(box);}
 function navigate(view) {
-  if (!views.has(view)) return;
-  currentView = view;
-  document.querySelectorAll(".view").forEach((section) => { section.hidden = section.id !== "view-" + view; });
-  document.querySelectorAll(".nav-button").forEach((button) => {
-    const active = button.dataset.view === view;
-    button.classList.toggle("selected", active);
-    if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
-  });
-  if (view === "messages") loadMessages().catch(showError);
-  if (view === "jobs") loadJobs().catch(showError);
-  $("main").focus({ preventScroll: true });
-  window.scrollTo({ top: 0, behavior: "instant" });
+  if(!["accounts","proxies","tasks"].includes(view))return; currentView=view;
+  document.querySelectorAll(".view").forEach(el=>{el.hidden=el.id!=="view-"+view;});
+  document.querySelectorAll("nav [data-view]").forEach(el=>{const active=el.dataset.view===view;el.classList.toggle("selected",active);if(active)el.setAttribute("aria-current","page");else el.removeAttribute("aria-current");});
+  $("main").focus({preventScroll:true}); if(view==="tasks")loadJobs().catch(showError);
 }
-
-document.addEventListener("click", (event) => {
-  const target = event.target.closest("button[data-view]");
-  if (target) navigate(target.dataset.view);
-});
-
-function renderAuth(auth) {
-  const step = auth.authorized ? "ready" : (authOverride || auth.step);
-  document.querySelectorAll("[data-auth-step]").forEach((element) => { element.hidden = element.dataset.authStep !== step; });
-  $("authTitle").textContent = auth.authorized ? "Аккаунт подключён" : "Подключите Telegram";
-  $("authSubtitle").textContent = auth.authorized ? "Сессия сохранена на этом устройстве" : "Параметры приложения → код → готово";
-  $("accountName").textContent = auth.account || "Telegram подключён";
-  $("connectionActions").hidden = !auth.configured || auth.authorized;
-  $("authError").hidden = !auth.error;
-  $("authError").textContent = auth.error || "";
+document.addEventListener("click",event=>{const nav=event.target.closest("nav [data-view]");if(nav)navigate(nav.dataset.view);const close=event.target.closest("[data-close]");if(close)$(close.dataset.close).close();});
+function canRender(id,signature) {
+  const target=$(id);
+  if(target.contains(document.activeElement)||target.querySelector("details[open]"))return false;
+  if(signatures.get(id)===signature)return false;
+  signatures.set(id,signature);return true;
 }
-
-function renderStatus(next) {
-  const oldCount = status?.stats.messages;
-  status = next;
-  const auth = next.telegram;
-  $("connectionLabel").textContent = auth.authorized ? "Telegram подключён" : "Не подключён";
-  $("connectionChip").classList.toggle("connected", auth.authorized);
-  $("version").textContent = "Parser / " + next.version;
-  $("onboarding").hidden = auth.authorized;
-  $("createJob").disabled = !auth.authorized || busyForms.has("jobForm");
-  $("jobHint").textContent = auth.authorized ? "Можно закрыть вкладку: пока Parser запущен, сбор продолжится" : "Сначала подключите аккаунт";
-  $("dataDirectory").textContent = next.data_dir;
-  $("cooldownNotice").hidden = next.cooldown_until * 1000 <= Date.now();
-  $("cooldownNotice").textContent = "Ограничение Telegram: новые запросы сбора возобновятся после " + date(new Date(next.cooldown_until * 1000)) + " UTC. Ожидание сохраняется при перезапуске.";
-  renderAuth(auth);
-  if (oldCount !== undefined && oldCount !== next.stats.messages && currentView === "messages") loadMessages().catch(showError);
-}
-
-function renderSources(sources) {
-  const select = $("sourceFilter"), selected = select.value;
-  const first = node("option", "", "Все источники");
-  first.value = "";
-  const options = sources.map((source) => {
-    const option = node("option", "", source.title + " · " + number(source.message_count));
-    option.value = String(source.id);
-    return option;
-  });
-  select.replaceChildren(first, ...options);
-  if (sources.some((source) => String(source.id) === selected)) select.value = selected;
-}
-
-function renderJobs(container, jobs, compact = false) {
-  if (container.contains(document.activeElement)) return;
-  const opened = new Set([...container.querySelectorAll("details[open]")].map((item) => item.dataset.job));
-  if (!jobs.length) {
-    empty(container, compact ? "Пока здесь тихо" : "Задач пока нет", compact ? "Добавьте источники и начните сбор. Здесь появится его прогресс." : "Создайте сбор во вкладке «Обзор». Прогресс и ошибки останутся в истории.", "⇅");
-    return;
-  }
-  container.replaceChildren(...jobs.map((job) => {
-    const card = node("article", "job-card"), top = node("div", "job-top");
-    top.append(node("strong", "job-name", job.source_key), node("span", "badge " + job.state, labels[job.state] || job.state));
-    const meta = node("p", "job-meta", "Просмотрено " + number(job.scanned) + " из лимита " + number(job.options.limit) + " · Совпадений " + number(job.matched));
-    const progress = node("progress");
-    progress.max = job.options.limit;
-    progress.value = job.scanned;
-    progress.setAttribute("aria-label", "Просмотрено сообщений в пределах лимита");
-    card.append(top, meta, progress);
-    if (job.state === "waiting" && job.wait_until) card.append(node("p", "job-error", "Telegram попросил подождать до " + date(job.wait_until) + " UTC. Продолжим автоматически."));
-    if (job.error) card.append(node("p", "job-error", job.error));
-    if (job.completion === "limit") card.append(node("p", "help", "Лимит достигнут. Создайте новый сбор с сохранённой позиции, чтобы получить следующую часть истории."));
-    if (job.stop_request) card.append(node("p", "help", "Сохраняем позицию и останавливаем запрос…"));
-    const actions = node("div", "job-actions");
-    const choices = [];
-    if (["queued", "running", "waiting"].includes(job.state)) choices.push(["pause", "Пауза"]);
-    if (["paused", "failed"].includes(job.state)) choices.push(["resume", job.state === "failed" ? "Повторить" : "Продолжить"]);
-    if (["queued", "running", "waiting", "paused", "failed"].includes(job.state)) choices.push(["cancel", "Отменить"]);
-    for (const [action, label] of choices) {
-      const button = node("button", "text-button" + (action === "cancel" ? " danger-text" : ""), label);
-      button.disabled = Boolean(job.stop_request);
-      button.addEventListener("click", async () => {
-        if (action === "cancel" && !await confirmAction("Отменить задачу?", "Уже сохранённые сообщения останутся в базе. Для нового сбора создайте отдельную задачу.", "Отменить задачу")) return;
-        await withBusy(button, async () => {
-          await api("/api/jobs/" + job.id + "/" + action, { method: "POST", body: {} });
-          button.blur();
-          await refresh();
-          notify(action === "resume" ? "Задача возвращена в очередь" : "Команда принята. Прогресс будет сохранён.");
-        });
-      });
-      actions.append(button);
-    }
-    card.append(actions);
-    if (!compact) {
-      const details = node("details", "job-details");
-      details.dataset.job = job.id;
-      details.open = opened.has(job.id);
-      details.append(node("summary", "", "Параметры · " + date(job.created_at) + " UTC"), node("p", "", "Период UTC: " + (job.options.date_from || "с начала") + " — " + (job.options.date_to || "без ограничения") + ". Содержит: " + (job.options.include.join(", ") || "любые фразы") + ". Исключает: " + (job.options.exclude.join(", ") || "ничего") + ". Тип: " + (mediaLabels[job.options.media] || "Все") + ". " + (job.options.incremental ? "С сохранённой позиции." : "Повтор истории.")));
-      card.append(details);
-    }
-    return card;
+function renderAccounts() {
+  const target=$("accountList"); if(!canRender("accountList",JSON.stringify([accounts,proxies])))return;
+  if(!accounts.length){empty(target,"Начните с аккаунта","Импортируйте .session, выберите папку tdata или войдите по номеру телефона.");return;}
+  target.replaceChildren(...accounts.map(account=>{
+    const row=node("article","account-row"),top=node("div","row-top"),identity=node("div","identity"),text=node("div","identity-text");
+    identity.append(node("span","avatar",Array.from(account.label).slice(0,1).join("").toUpperCase()));
+    text.append(node("strong","",account.label));
+    const proxy=proxies.find(p=>p.id===account.proxy_id);
+    text.append(node("p","meta",kinds[account.kind]+" · "+(proxy?proxy.label:"Без прокси")));
+    text.append(node("span","badge "+(account.authorized?"ready":account.error?"failed":""),account.authorized?"● Подключён":account.error?"● Требует внимания":"○ Не проверен"));
+    identity.append(text);const actions=node("div","actions");
+    actions.append(button("Проверить","",async()=>{await post("/api/accounts/"+account.id+"/check");document.activeElement?.blur();signatures.delete("accountList");await refresh();notify("Подключение аккаунта проверено");}));
+    top.append(identity,actions);row.append(top);
+    if(account.error)row.append(node("p","job-error",account.error));
+    const details=node("details","account-settings"),panel=node("div","settings-panel"),assignment=node("div","actions"),label=node("label","","Прокси для аккаунта"),select=node("select");
+    select.setAttribute("aria-label","Прокси: "+account.label);const direct=node("option","","Без прокси");direct.value="";select.append(direct);
+    for(const p of proxies){const option=node("option","",p.label);option.value=p.id;select.append(option);}select.value=account.proxy_id;
+    label.append(select);assignment.append(label,button("Применить","",async()=>{await post("/api/accounts/"+account.id+"/proxy",{proxy_id:select.value});details.open=false;document.activeElement?.blur();signatures.delete("accountList");await refresh();notify("Прокси назначен. Нажмите «Проверить» у аккаунта.");}));
+    const footer=node("div","row-footer actions");footer.append(button(account.authorized?"Аккаунт подключён":"Войти / настроить","quiet",async()=>{authId=account.id;authState=await post("/api/accounts/"+account.id+"/select");renderAuth(authState);openDialog("authDialog");}));
+    footer.append(button("Удалить из Parser","quiet danger-text",async()=>{if(!await confirmAction("Удалить аккаунт из Parser?","Удалится только локальная копия сессии. Исходные файлы и сессия в Telegram останутся. Собранные сообщения сохранятся; задачи этого аккаунта нельзя будет продолжить.","Удалить локально"))return;await post("/api/accounts/"+account.id+"/remove",{confirm:"remove-local-account"});details.open=false;document.activeElement?.blur();signatures.delete("accountList");await refresh();}));
+    panel.append(assignment,footer);details.append(node("summary","","Настройки"),panel);row.append(details);return row;
   }));
 }
-
-async function loadJobs() {
-  const data = await api("/api/jobs?offset=" + jobsOffset);
-  renderJobs($("allJobs"), data.items);
-  $("prevJobs").disabled = jobsOffset === 0;
-  $("nextJobs").disabled = data.items.length < 50;
-  $("jobsPageLabel").textContent = "Страница " + (jobsOffset / 50 + 1);
+function renderProxies() {
+  const target=$("proxyList");if(!canRender("proxyList",JSON.stringify([proxies,[...proxyChecks]])))return;
+  if(!proxies.length){empty(target,"Прокси пока нет","Можно работать без прокси. Если он нужен, добавьте SOCKS5 или HTTP CONNECT и назначьте его аккаунту.","⇄");return;}
+  target.replaceChildren(...proxies.map(proxy=>{const row=node("article","proxy-row"),top=node("div","row-top"),text=node("div","identity-text"),actions=node("div","actions");text.append(node("strong","",proxy.label),node("p","meta",proxy.type.toUpperCase()+" · "+proxy.host+":"+proxy.port+(proxy.has_auth?" · С авторизацией":"")));
+    actions.append(button("Проверить","",async()=>{const result=await post("/api/proxies/"+proxy.id+"/check");proxyChecks.set(proxy.id,"Туннель доступен · "+num(result.latency_ms)+" мс. Авторизация аккаунта не проверялась.");document.activeElement?.blur();renderProxies();}),button("Удалить","quiet danger-text",async()=>{if(!await confirmAction("Удалить прокси?","Сначала отключите этот прокси у аккаунтов, которым он назначен.","Удалить"))return;await post("/api/proxies/"+proxy.id+"/remove",{confirm:"remove-proxy"});document.activeElement?.blur();await refresh();}));top.append(text,actions);row.append(top);if(proxyChecks.has(proxy.id))row.append(node("p","meta",proxyChecks.get(proxy.id)));return row;}));
 }
-
+function renderJobs(items) {
+  const target=$("allJobs");if(!canRender("allJobs",JSON.stringify(items)))return;
+  if(!items.length){empty(target,"Задач пока нет","Создайте задачу, выберите аккаунт и добавьте каналы или группы. Прогресс появится здесь.","≡");return;}
+  target.replaceChildren(...items.map(job=>{const row=node("article","job-card"),top=node("div","job-top");top.append(node("strong","job-name",job.source_key),node("span","badge "+job.state,labels[job.state]||job.state));row.append(top,node("p","meta",(job.options.account_label||"Аккаунт из прежней версии")+" · Просмотрено "+num(job.scanned)+" / "+num(job.options.limit)+" · Сохранено "+num(job.matched)));
+    const progress=node("progress");progress.max=job.options.limit;progress.value=job.scanned;progress.setAttribute("aria-label","Просмотрено сообщений в пределах лимита");row.append(progress);
+    if(job.error)row.append(node("p","job-error",job.error));if(job.state==="waiting"&&job.wait_until)row.append(node("p","job-error","Telegram просит подождать до "+date(job.wait_until)+" UTC. Продолжим автоматически."));
+    if(job.completion==="limit")row.append(node("p","help","Лимит достигнут. Создайте следующий сбор с сохранённой позиции."));if(job.stop_request)row.append(node("p","help","Сохраняем позицию и останавливаем запрос…"));
+    const actions=node("div","job-actions"),choices=[];if(["queued","running","waiting"].includes(job.state))choices.push(["pause","Пауза"]);if(["paused","failed"].includes(job.state))choices.push(["resume","Продолжить"]);if(["queued","running","waiting","paused","failed"].includes(job.state))choices.push(["cancel","Отменить"]);
+    for(const [action,label] of choices){const control=button(label,action==="cancel"?"quiet danger-text":"",async()=>{if(action==="cancel"&&!await confirmAction("Отменить задачу?","Сохранённые сообщения останутся в результатах.","Отменить задачу"))return;await post("/api/jobs/"+job.id+"/"+action);document.activeElement?.blur();await loadJobs();});control.disabled=!!job.stop_request;actions.append(control);}row.append(actions);return row;}));
+}
+async function loadJobs() {const data=await api("/api/jobs?offset="+jobsOffset);renderJobs(data.items);$("prevJobs").disabled=jobsOffset===0;$("nextJobs").disabled=data.items.length<50;$("jobsPageLabel").textContent="Страница "+(jobsOffset/50+1);}
+function updateAccountSelect() {const select=$("jobAccount"),value=select.value;const available=accounts.filter(a=>a.authorized);select.replaceChildren();for(const account of available){const option=node("option","",account.label);option.value=account.id;select.append(option);}if(available.some(a=>a.id===value))select.value=value;if(!available.length){const option=node("option","","Сначала проверьте аккаунт во вкладке «Аккаунты»");option.value="";select.append(option);}$("createJob").disabled=!available.length;}
 async function refresh() {
-  if (refreshing || !token || stopped) return;
-  refreshing = true;
+  if(refreshing||!token)return;refreshing=true;
   try {
-    const [next, sources, jobs] = await Promise.all([api("/api/status"), api("/api/sources"), api("/api/jobs")]);
-    renderStatus(next);
-    renderSources(sources.items);
-    renderJobs($("recentJobs"), jobs.items.slice(0, 2), true);
-    if (currentView === "jobs") await loadJobs();
-  } catch (error) {
-    showError(error);
-  } finally { refreshing = false; }
+    const [next,a,p,s]=await Promise.all([api("/api/status"),api("/api/accounts"),api("/api/proxies"),api("/api/sources")]);status=next;accounts=a.items;proxies=p.items;
+    $("version").textContent="Parser "+next.version;$("dataDirectory").textContent=next.data_dir;
+    $("cooldownNotice").hidden=next.cooldown_until*1000<=Date.now();if(!$("cooldownNotice").hidden)$("cooldownNotice").textContent="Ограничение Telegram: ждём до "+date(next.cooldown_until*1000)+" UTC. Ожидание сохраняется при перезапуске.";
+    renderAccounts();renderProxies();if(!$('taskDialog').open)updateAccountSelect();
+    const filter=$("sourceFilter"),value=filter.value;filter.replaceChildren();const all=node("option","","Все источники");all.value="";filter.append(all);for(const item of s.items){const option=node("option","",item.title);option.value=String(item.id);filter.append(option);}if(s.items.some(item=>String(item.id)===value))filter.value=value;
+    if(currentView==="tasks")await loadJobs();
+  }catch(error){showError(error);}finally{refreshing=false;}
 }
-
-function messageQuery() {
-  return new URLSearchParams({ q: $("search").value.trim(), source: $("sourceFilter").value });
+function renderAuth(state,override) {authState=state;const step=override||(state.authorized?"ready":state.step);document.querySelectorAll("[data-auth-step]").forEach(el=>{el.hidden=el.dataset.authStep!==step;});$("accountName").textContent=state.account||"Аккаунт Telegram";$("authError").hidden=!state.error;$("authError").textContent=state.error||"";}
+function chooseMethod(method) {document.querySelectorAll("[data-import]").forEach(el=>{el.hidden=el.dataset.import!==method;});document.querySelectorAll("[data-method]").forEach(el=>el.classList.toggle("selected",el.dataset.method===method));$("importReport").hidden=true;$("accountDialog").querySelector("[data-error]").hidden=true;}
+for(const el of document.querySelectorAll("[data-method]"))el.onclick=()=>chooseMethod(el.dataset.method);
+function nativeReady() {return typeof window.pywebview?.api?.import_accounts==="function";}
+function updateNative() {$("nativeHint").hidden=nativeReady();}
+$("addAccount").onclick=()=>{chooseMethod("session");updateNative();openDialog("accountDialog");};
+$("beginPhone").onclick=()=>withBusy($("beginPhone"),async()=>{const next=await post("/api/accounts",{});authId=next.account_id;$("accountDialog").close();renderAuth(next);openDialog("authDialog");await refresh();});
+for(const kind of ["session","tdata"]) {
+  $(kind+"Form").onsubmit=async event=>{event.preventDefault();const el=$(kind==="session"?"importSession":"importTdata");await withBusy(el,async()=>{
+    if(!nativeReady())throw new Error("Откройте Parser как отдельное приложение. В браузере выбор локальных сессий отключён.");
+    let result;try {result=await window.pywebview.api.import_accounts(token,kind,$("sessionApiId").value,$("sessionApiHash").value,$("tdataPasscode").value);}finally{$("tdataPasscode").value="";}
+    if(result.error)throw new Error(result.error);if(result.cancelled)return;
+    const report=$("importReport");report.replaceChildren();for(const item of result.items)report.append(node("p",item.ok?"success-note":"warning",(item.ok?"✓ ":"Не импортирован: ")+item.name+(item.ok?" — добавлен, нажмите «Проверить» в списке аккаунтов.":" — "+item.error)));
+    report.hidden=false;if(result.items.some(item=>item.ok))$("sessionApiHash").value="";await refresh();report.scrollIntoView({block:"nearest"});
+  });};
 }
-
-async function loadMessages() {
-  const request = ++messageRequest;
-  const query = messageQuery();
-  query.set("page", String(page));
-  const data = await api("/api/messages?" + query);
-  if (request !== messageRequest) return;
-  $("resultCount").textContent = "Найдено: " + number(data.total);
-  const pages = Math.max(1, Math.ceil(data.total / data.page_size));
-  $("pageLabel").textContent = page + " / " + pages;
-  $("prevPage").disabled = page <= 1;
-  $("nextPage").disabled = page >= pages;
-  $("exportButton").disabled = data.total === 0;
-  const list = $("messageList");
-  if (!data.items.length) {
-    empty(list, "Сообщений не найдено", $("search").value || $("sourceFilter").value ? "Измените запрос или выберите другой источник." : "Запустите сбор: сохранённые сообщения появятся здесь.", "≡");
-    return;
-  }
-  list.replaceChildren(...data.items.map((message) => {
-    const card = node("article", "message-card"), meta = node("div", "message-meta");
-    const timestamp = node("time", "", date(message.sent_at) + " UTC");
-    timestamp.dateTime = message.sent_at;
-    meta.append(node("strong", "", message.source_title), timestamp, node("span", "badge", mediaLabels[message.media] || message.media));
-    const characters = Array.from(message.text);
-    card.append(meta, node("p", "message-text", message.text ? characters.slice(0, 420).join("") + (characters.length > 420 ? "…" : "") : "Медиасообщение без подписи"));
-    if (characters.length > 420) {
-      const details = node("details", "message-details");
-      details.append(node("summary", "", "Полный текст"), node("p", "", message.text));
-      card.append(details);
-    }
-    const bottom = node("div", "message-bottom");
-    bottom.append(node("span", "", "ID " + message.message_id + " · Просмотров " + number(message.views)));
-    try {
-      const url = new URL(message.link);
-      if (url.protocol === "https:" && url.host === "t.me" && !url.username && !url.password) {
-        const link = node("a", "", "В Telegram ↗");
-        link.href = url.href;
-        link.target = "_blank";
-        link.rel = "noreferrer";
-        bottom.append(link);
-      }
-    } catch { /* A basic group may have no permalink. */ }
-    card.append(bottom);
-    return card;
-  }));
+for(const [form,action,fields] of [["configForm","configure",{api_id:"apiId",api_hash:"apiHash"}],["phoneForm","send_code",{phone:"phone"}],["codeForm","verify_code",{code:"code"}],["passwordForm","verify_password",{password:"password"}]]) {
+  $(form).onsubmit=async event=>{event.preventDefault();await withBusy($(form).querySelector('[type="submit"]'),async()=>{const body={account_id:authId,...Object.fromEntries(Object.entries(fields).map(([k,id])=>[k,$(id).value]))};let next;try{next=await post("/api/auth/"+action,body);}finally{for(const key of ["code","password"])if(fields[key])$(fields[key]).value="";}if(fields.api_hash)$(fields.api_hash).value="";renderAuth(next);await refresh();const input=document.querySelector('[data-auth-step="'+next.step+'"] input');if(input)input.focus();});};
 }
-
-async function withBusy(button, action) {
-  if (button.disabled) return;
-  const text = button.textContent;
-  button.disabled = true;
-  button.textContent = "Подождите…";
-  try { await action(); } catch (error) { showError(error); }
-  finally { button.disabled = false; button.textContent = text; }
+$("editConfig").onclick=()=>renderAuth(authState,"settings");$("backToPhone").onclick=()=>renderAuth(authState,"phone");
+$("addProxy").onclick=()=>openDialog("proxyDialog");
+$("proxyForm").onsubmit=event=>{event.preventDefault();withBusy($("proxyForm").querySelector('[type="submit"]'),async()=>{await post("/api/proxies",{label:$("proxyLabel").value,type:$("proxyType").value,host:$("proxyHost").value,port:$("proxyPort").value,username:$("proxyUser").value,password:$("proxyPassword").value});$("proxyForm").reset();$("proxyDialog").close();await refresh();notify("Прокси добавлен. Назначьте его в настройках аккаунта.");});};
+$("newTask").onclick=()=>{updateAccountSelect();openDialog("taskDialog");};
+$("jobForm").onsubmit=event=>{event.preventDefault();withBusy($("createJob"),async()=>{await post("/api/jobs",{account_id:$("jobAccount").value,sources:$("sources").value,limit:$("limit").value,include:$("include").value,exclude:$("exclude").value,date_from:$("dateFrom").value,date_to:$("dateTo").value,media:$("media").value,incremental:$("incremental").checked});$("taskDialog").close();jobsOffset=0;await loadJobs();notify("Задача добавлена в очередь");});};
+function messageQuery() {return new URLSearchParams({q:$("search").value.trim(),source:$("sourceFilter").value});}
+async function loadMessages() {const serial=++messageRequest;const query=messageQuery();query.set("page",String(page));const data=await api("/api/messages?"+query);if(serial!==messageRequest)return;
+  $("resultCount").textContent="Найдено: "+num(data.total);const pages=Math.max(1,Math.ceil(data.total/data.page_size));$("pageLabel").textContent=page+" / "+pages;$("prevPage").disabled=page<=1;$("nextPage").disabled=page>=pages;$("exportButton").disabled=!data.total;
+  if(!data.items.length){empty($("messageList"),"Сообщений не найдено","Запустите сбор или измените поисковый запрос.","≡");return;}
+  $("messageList").replaceChildren(...data.items.map(message=>{const card=node("article","message-card"),meta=node("div","message-meta");meta.append(node("strong","",message.source_title),node("span","",date(message.sent_at)+" UTC"));card.append(meta,node("p","message-text",message.text?Array.from(message.text).slice(0,500).join("")+(message.text.length>500?"…":""):"Медиасообщение без подписи"));if(message.text.length>500){const details=node("details");details.append(node("summary","","Полный текст"),node("p","",message.text));card.append(details);}const bottom=node("div","message-bottom");bottom.append(node("span","","ID "+message.message_id+" · "+message.media));try{const url=new URL(message.link);if(url.protocol==="https:"&&url.host==="t.me"&&!url.username&&!url.password){const link=node("a","","В Telegram ↗");link.href=url.href;link.target="_blank";link.rel="noreferrer";bottom.append(link);}}catch{}card.append(bottom);return card;}));
 }
-
-function confirmAction(title, description, label) {
-  const dialog = $("confirmDialog");
-  $("confirmTitle").textContent = title;
-  $("confirmDescription").textContent = description;
-  $("confirmOk").textContent = label;
-  dialog.showModal();
-  $("confirmCancel").focus();
-  return new Promise((resolve) => {
-    const finish = (value) => { dialog.close(); resolve(value); };
-    $("confirmCancel").onclick = () => finish(false);
-    $("confirmOk").onclick = () => finish(true);
-    dialog.oncancel = (event) => { event.preventDefault(); finish(false); };
-  });
-}
-
-$("jobForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const button = $("createJob");
-  busyForms.add("jobForm");
-  await withBusy(button, async () => {
-    const body = { sources: $("sources").value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), include: $("include").value, exclude: $("exclude").value, date_from: $("dateFrom").value, date_to: $("dateTo").value, media: $("media").value, limit: Number($("limit").value), incremental: $("incremental").checked };
-    if (body.date_from && body.date_to && body.date_from > body.date_to) throw new Error("Начало периода не может быть позже окончания.");
-    const result = await api("/api/jobs", { method: "POST", body });
-    notify("Добавлено задач: " + result.ids.length + ". Следите за прогрессом в очереди.");
-    await refresh();
-  });
-  busyForms.delete("jobForm");
-  button.disabled = !status?.telegram.authorized;
-});
-
-for (const [form, action, fields] of [
-  ["configForm", "configure", { api_id: "apiId", api_hash: "apiHash" }],
-  ["phoneForm", "send_code", { phone: "phone" }],
-  ["codeForm", "verify_code", { code: "code" }],
-  ["passwordForm", "verify_password", { password: "password" }],
-]) {
-  $(form).addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await withBusy($(form).querySelector('[type="submit"]'), async () => {
-      const body = Object.fromEntries(Object.entries(fields).map(([key, id]) => [key, $(id).value]));
-      let next;
-      try { next = await api("/api/auth/" + action, { method: "POST", body }); }
-      finally { if (fields.password) $(fields.password).value = ""; if (fields.code) $(fields.code).value = ""; }
-      if (fields.api_hash) $(fields.api_hash).value = "";
-      authOverride = null;
-      renderAuth(next);
-      $("alert").hidden = true;
-      await refresh();
-      const first = document.querySelector('[data-auth-step="' + next.step + '"] input');
-      if (first) first.focus();
-      if (next.authorized) { $("phone").value = ""; notify("Telegram подключён. Можно начинать сбор."); }
-    });
-  });
-}
-
-$("editConfig").onclick = () => { authOverride = "settings"; renderAuth(status.telegram); $("apiId").focus(); };
-$("backToPhone").onclick = () => { authOverride = "phone"; renderAuth(status.telegram); $("phone").focus(); };
-$("refreshAuth").onclick = () => withBusy($("refreshAuth"), async () => { await api("/api/auth/refresh", { method: "POST", body: {} }); authOverride = null; await refresh(); });
-$("logoutButton").onclick = async () => {
-  if (!await confirmAction("Отключить Telegram?", "Сессия этого приложения будет отозвана. Собранные сообщения и задачи на паузе останутся. Активные задачи сначала нужно остановить.", "Отключить аккаунт")) return;
-  await withBusy($("logoutButton"), async () => { await api("/api/auth/logout", { method: "POST", body: {} }); await refresh(); notify("Аккаунт отключён"); });
-};
-$("clearHistory").onclick = async () => {
-  if (!await confirmAction("Удалить историю сборов?", "Все сохранённые сообщения, источники и задачи будут удалены с этого устройства без возможности отмены. Сначала сделайте экспорт. Сессия Telegram останется подключённой.", "Удалить историю")) return;
-  await withBusy($("clearHistory"), async () => { await api("/api/history", { method: "DELETE", body: { confirm: "delete-local-history" } }); page = 1; jobsOffset = 0; await refresh(); notify("Локальная история удалена"); });
-};
-$("search").addEventListener("input", () => { clearTimeout(searchTimer); page = 1; searchTimer = setTimeout(() => loadMessages().catch(showError), 300); });
-$("sourceFilter").onchange = () => { page = 1; loadMessages().catch(showError); };
-$("refreshMessages").onclick = () => withBusy($("refreshMessages"), loadMessages);
-$("prevPage").onclick = () => { if (page > 1) page--; loadMessages().catch(showError); };
-$("nextPage").onclick = () => { page++; loadMessages().catch(showError); };
-$("prevJobs").onclick = () => { jobsOffset = Math.max(0, jobsOffset - 50); loadJobs().catch(showError); };
-$("nextJobs").onclick = () => { jobsOffset += 50; loadJobs().catch(showError); };
-$("dismissAlert").onclick = () => { $("alert").hidden = true; };
-$("exportButton").onclick = () => withBusy($("exportButton"), async () => {
-  const fmt = $("exportFormat").value, query = messageQuery();
-  query.set("format", fmt);
-  let handle;
-  if (window.showSaveFilePicker) {
-    try { handle = await window.showSaveFilePicker({ suggestedName: "parser-messages." + fmt }); }
-    catch (error) { if (error.name === "AbortError") return; throw error; }
-  }
-  const response = await api("/api/export?" + query, { raw: true });
-  if (handle && response.body) await response.body.pipeTo(await handle.createWritable());
-  else {
-    const url = URL.createObjectURL(await response.blob());
-    const link = node("a");
-    link.href = url; link.download = "parser-messages." + fmt;
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
-  notify("Выборка экспортирована. CSV защищён от формул в тексте сообщений.");
-});
-
-try {
-  const key = new URLSearchParams(location.hash.slice(1)).get("key");
-  if (key) {
-    history.replaceState(null, "", location.pathname + location.search);
-    sessionStorage.setItem("parser-key", key);
-  }
-  token = sessionStorage.getItem("parser-key") || "";
-} catch { showError(new Error("Разрешите хранилище вкладки для локального приложения и откройте ссылку запуска снова.")); }
-if (!token) {
-  showError(new Error("Откройте личную ссылку, которую выдал Parser при запуске. Ключ доступа нужен только этой вкладке."));
-  $("connectionLabel").textContent = "Нужна ссылка запуска";
-  empty($("recentJobs"), "Откройте приложение", "Запустите Parser и используйте его личную ссылку.");
-} else {
-  refresh();
-  pollingTimer = setInterval(() => { if (!document.hidden) refresh(); }, 2500);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
-}
-
-// Built-in illustrated guide. Only bundled same-origin screenshot paths are used.
-document.querySelectorAll('.guide-zoom').forEach(button => {
-  button.addEventListener('click', () => {
-    const image = button.querySelector('img');
-    if (!image.naturalWidth) return;
-    $('guideImageFull').src = button.dataset.image;
-    $('guideImageFull').alt = image.alt;
-    $('imageDialog').showModal();
-    $('closeImage').focus();
-  });
-  const image = button.querySelector('img');
-  image.addEventListener('error', () => {
-    if (button.querySelector('.guide-missing')) return;
-    const note = node('span', 'guide-missing', 'Скриншот не найден в этой сборке. В установщике иллюстрации включены; для сборки из исходников выполните команду генерации из README.');
-    button.append(note); image.hidden = true;
-  });
-});
-$('closeImage').onclick = () => $('imageDialog').close();
-$('quitButton').onclick = async () => {
-  if (!await confirmAction('Завершить Parser?', 'Выполняющаяся задача сохранит позицию и останется на паузе. Чтобы продолжить работу позже, откройте Parser из меню Пуск.', 'Завершить приложение')) return;
-  await withBusy($('quitButton'), async () => {
-    await api('/api/shutdown', {method:'POST', body:{confirm:'quit'}});
-    stopped = true; clearInterval(pollingTimer);
-    $('connectionLabel').textContent = 'Приложение закрыто';
-    $('createJob').disabled = true;
-    $('alert').hidden = true;
-    notify('Parser закрыт. Теперь можно закрыть эту вкладку.');
-  });
-};
+$("showResults").onclick=()=>{openDialog("resultsDialog");loadMessages().catch(showError);};
+$("search").oninput=()=>{clearTimeout(searchTimer);page=1;searchTimer=setTimeout(()=>loadMessages().catch(showError),300);};
+$("sourceFilter").onchange=()=>{page=1;loadMessages().catch(showError);};
+$("prevPage").onclick=()=>{page=Math.max(1,page-1);loadMessages().catch(showError);};$("nextPage").onclick=()=>{page++;loadMessages().catch(showError);};
+$("prevJobs").onclick=()=>{jobsOffset=Math.max(0,jobsOffset-50);loadJobs().catch(showError);};$("nextJobs").onclick=()=>{jobsOffset+=50;loadJobs().catch(showError);};
+$("exportButton").onclick=()=>withBusy($("exportButton"),async()=>{const fmt=$("exportFormat").value;if(nativeReady()){const result=await window.pywebview.api.export_messages(token,fmt,$("search").value.trim(),$("sourceFilter").value);if(result.error)throw new Error(result.error);if(result.cancelled)return;notify("Сохранено: "+result.name);}else{const query=messageQuery();query.set("format",fmt);const response=await api("/api/export?"+query,{raw:true});const url=URL.createObjectURL(await response.blob());const link=node("a");link.href=url;link.download="parser-messages."+fmt;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);notify("Выборка экспортирована");}});
+$("helpButton").onclick=()=>openDialog("view-guide");$("dismissAlert").onclick=()=>{$("alert").hidden=true;};
+try {const key=new URLSearchParams(location.hash.slice(1)).get("key");if(key){history.replaceState(null,"",location.pathname+location.search);sessionStorage.setItem("parser-key",key);}token=sessionStorage.getItem("parser-key")||"";}catch{showError(new Error("Не удалось открыть локальное хранилище окна. Перезапустите Parser."));}
+function bridgeReady(){updateNative();if(window.pywebview?.api?.window_ready)window.pywebview.api.window_ready(token,[...document.querySelectorAll("nav [data-view] span:last-child")].map(el=>el.textContent)).catch(showError);}
+window.addEventListener("pywebviewready",bridgeReady);if(nativeReady())bridgeReady();
+if(token){refresh();setInterval(()=>{if(!document.hidden)refresh();},2500);}else{showError(new Error("Запустите Parser из меню «Пуск» или через python -m parser_app. Ключ окна отсутствует."));}

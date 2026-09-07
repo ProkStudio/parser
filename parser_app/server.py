@@ -15,8 +15,7 @@ from .domain import VERSION, AppError, bounded_int, export_rows, job_spec
 STATIC = Path(__file__).with_name("static")
 ASSETS = {"/": ("index.html", "text/html"), "/static/app.js": ("app.js", "text/javascript"), "/static/styles.css": ("styles.css", "text/css")}
 
-for name in ("connect", "collect", "jobs", "messages"):
-    ASSETS["/static/guide/" + name + ".webp"] = ("guide/" + name + ".webp", "image/webp")
+# Only the three current UI assets are served. Help is a compact built-in dialog.
 
 
 class Export:

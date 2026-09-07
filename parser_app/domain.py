@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timezone
 from urllib.parse import urlparse
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 ACTIVE = ("queued", "running", "waiting")
 MEDIA = ("any", "text", "photo", "video", "document", "audio", "other")
 

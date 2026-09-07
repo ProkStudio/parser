@@ -1,160 +1,98 @@
-// Generates real UI screenshots using synthetic fixtures, then checks key flows.
+// All account/message data is synthetic. Native file pickers are tested separately.
 import { chromium } from 'playwright';
-import { spawn, execFileSync } from 'node:child_process';
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
-const root = process.cwd();
-const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-await fs.mkdir('.qa/guide', { recursive: true });
-await fs.mkdir('parser_app/static/guide', { recursive: true });
-const child = spawn(python, ['-m', 'tests.fixture_server'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-let stderr = '';
-child.stderr.on('data', data => { stderr += data.toString(); });
-const ready = await new Promise((resolve, reject) => {
-  let text = '';
-  const timeout = setTimeout(() => { child.kill(); reject(new Error('Fixture startup timed out: ' + stderr)); }, 15000);
-  child.stdout.on('data', data => {
-    text += data.toString();
-    if (text.includes('\n')) { clearTimeout(timeout); try { resolve(JSON.parse(text.split('\n')[0])); } catch (error) { reject(error); } }
-  });
-  child.once('exit', code => { clearTimeout(timeout); reject(new Error('Fixture exited: ' + code + ' ' + stderr)); });
-});
-const origin = 'http://127.0.0.1:' + ready.port;
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE || undefined, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-const errors = [], results = [];
-const deadline = setTimeout(() => { child.kill(); process.exit(1); }, 120000);
+await mkdir('.qa',{recursive:true});
+const child=spawn(process.env.PYTHON || (process.platform==='win32'?'python':'python3'),['-m','tests.fixture_server'],{stdio:['ignore','pipe','inherit']});
+const info=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error('Fixture timeout')),10000);child.stdout.on('data',chunk=>{output+=chunk;const line=output.split('\n')[0];try{const value=JSON.parse(line);clearTimeout(timer);resolve(value);}catch{}});child.on('error',reject);});
+const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:existsSync('/usr/local/bin/chromium')?{executablePath:'/usr/local/bin/chromium'}:{})});
+const checks=[];
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
-  page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(() => { window.showSaveFilePicker = undefined; });
-  await page.goto(origin + '/#key=' + ready.key, { waitUntil: 'networkidle' });
-  await page.locator('#connectionLabel').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('.stats').count(), 0, 'Dashboard statistics must be removed');
-  assert.equal(await page.evaluate(() => location.hash), '', 'Launch token must be removed from address');
-  assert.equal((await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gold'))).trim(), '#dfbd72');
-  // Poll from Node, not page.waitForFunction: keep the real strict CSP active.
-  const until = async (read, expected, label) => {
-    const end = Date.now() + 15000;
-    let actual;
-    do {
-      actual = await read();
-      if (actual === expected) return;
-      await new Promise(resolve => setTimeout(resolve, 75));
-    } while (Date.now() < end);
-    throw new Error(label + ': expected ' + expected + ', got ' + actual);
-  };
-  const go = async view => { await page.locator('nav [data-view="' + view + '"]').click(); };
-  const shot = async (name, locator) => {
-    await page.locator('#toast').evaluate(el => { el.hidden = true; });
-    await locator.screenshot({ path: '.qa/guide/' + name + '.png' });
-  };
-  await until(() => page.locator('#connectionLabel').textContent(), 'Не подключён', 'Initial connection state');
-  await go('connection');
-  await shot('connect', page.locator('.connection-grid'));
-  await page.locator('#apiId').fill('123456');
-  await page.locator('#apiHash').fill('a'.repeat(32)); // Deliberately synthetic, never sent to Telegram.
-  await page.locator('#configForm [type=submit]').click();
-  await page.locator('#phone').fill('+19999999999');
-  await page.locator('#phoneForm [type=submit]').click();
-  await page.locator('#code').fill('22222');
-  await page.locator('#codeForm [type=submit]').click();
-  await page.locator('#password').fill('synthetic-fixture-only');
-  await page.locator('#passwordForm [type=submit]').click();
-  await until(() => page.locator('#connectionLabel').textContent(), 'Telegram подключён', 'Account connection');
-  assert.equal(await page.locator('#password').inputValue(), '');
-  assert.equal(await page.locator('#apiHash').inputValue(), '');
-  results.push('API settings, code and 2FA UI flow; secret inputs cleared');
-  await go('overview');
-  await page.locator('#sources').fill('@example_channel');
-  await page.locator('#include').fill('дизайн, вакансия');
-  await page.locator('#exclude').fill('реклама');
-  await page.locator('.advanced summary').click();
-  await page.locator('#dateFrom').fill('2026-09-01');
-  await page.locator('#dateTo').fill('2026-09-07');
-  await shot('collect', page.locator('#jobForm').locator('..'));
-  await page.locator('#createJob').click();
-  await until(() => page.locator('#toast').isVisible(), true, 'Job creation notice');
-  await go('jobs');
-  await until(() => page.locator('#allJobs .job-card').count(), 4, 'Created job');
-  await shot('jobs', page.locator('#allJobs'));
-  const queued = page.locator('#allJobs .job-card').filter({ hasText: '@example_channel' }).filter({ has: page.locator('.badge.queued') });
-  await queued.getByRole('button', { name: 'Пауза', exact: true }).click();
-  await until(() => page.locator('#allJobs .badge.queued').count(), 0, 'Paused queue');
-  results.push('Create job, list jobs, pause queued job');
-  await go('messages');
-  await until(() => page.locator('.message-card').count(), 30, 'First results page');
-  assert.equal(await page.evaluate(() => window.parserInjected), undefined);
-  await page.locator('#nextPage').click();
-  await until(() => page.locator('.message-card').count(), 5, 'Second results page');
-  await page.locator('#search').fill('Учебный пример');
-  await until(() => page.locator('.message-card').count(), 2, 'Filtered results');
-  await shot('messages', page.locator('#view-messages .panel'));
-  await page.locator('#exportFormat').selectOption('json');
-  const downloadPromise = page.waitForEvent('download');
-  await page.locator('#exportButton').click();
-  const download = await downloadPromise;
-  await download.saveAs('.qa/export.json');
-  const exported = JSON.parse(await fs.readFile('.qa/export.json', 'utf8'));
-  assert.equal(exported.length, 2);
-  results.push('Safe text rendering, pagination, Unicode search, whole-filter JSON export');
-  execFileSync(python, ['-c', "from PIL import Image\nfrom pathlib import Path\nfor p in Path('.qa/guide').glob('*.png'):\n im=Image.open(p).convert('RGB'); im.save(Path('parser_app/static/guide')/(p.stem+'.webp'), 'WEBP', quality=88, method=6)"], { cwd: root });
-  await go('guide');
-  for (const step of await page.locator('.guide-step').all()) {
-    await step.evaluate(el => { el.open = true; });
+  const context=await browser.newContext({viewport:{width:1120,height:780}});
+  const page=await context.newPage();const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.addInitScript(()=>{
+    window.__nativeCalls=[];
+    window.pywebview={api:{
+      window_ready:async()=>({ok:true}),
+      import_accounts:async(token,kind,api_id,api_hash,passcode)=>{
+        window.__nativeCalls.push({kind,hasPasscode:!!passcode});
+        const req=async(path,body)=>{const response=await fetch(path,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;};
+        const account=await req('/api/accounts',{label:'Учебный импорт '+kind});
+        await req('/api/auth/configure',{account_id:account.account_id,api_id:api_id||12345,api_hash:api_hash||'a'.repeat(32)});
+        return {items:[{ok:true,name:'Учебный '+kind,id:account.account_id}]};
+      },
+      export_messages:async()=>({ok:true,name:'synthetic-results.json'})
+    }};
+  });
+  await page.goto(`http://127.0.0.1:${info.port}/#key=${info.key}`);
+  await page.waitForFunction(()=>document.querySelector('#version').textContent.includes('0.2.0'));
+  assert.equal(await page.locator('nav [data-view]').count(),3);
+  async function shot(name){
+    await page.waitForTimeout(150);
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
+    assert.equal(overflow,false,name+' horizontal overflow');
+    const dialogs=await page.locator('dialog[open]').evaluateAll(ds=>ds.map(d=>({id:d.id,width:d.scrollWidth,client:d.clientWidth})));
+    assert.ok(dialogs.every(d=>d.width<=d.client+1),name+' dialog overflow');
+    await page.screenshot({path:'.qa/'+name+'.png'});checks.push(name);
   }
-  for (const image of await page.locator('.guide-zoom img').all()) {
-    await image.scrollIntoViewIfNeeded();
-    await image.evaluate(el => el.decode());
-    assert.ok(await image.evaluate(el => el.naturalWidth > 0));
-  }
-  await page.locator('.guide-zoom').first().click();
-  assert.ok(await page.locator('#imageDialog').isVisible());
-  await page.locator('#closeImage').click();
-  for (const step of await page.locator('.guide-step').all()) await step.evaluate(el => { el.open = false; });
-  await page.locator('.guide-step').nth(1).evaluate(el => { el.open = true; });
-  await page.evaluate(() => scrollTo(0, 0));
-  await page.screenshot({ path: '.qa/guide-desktop.png', fullPage: true });
-  results.push('Four bundled guide screenshots decode, enlarged viewer opens/closes');
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
-    for (const view of ['overview', 'messages', 'jobs', 'connection', 'guide']) {
-      await go(view);
-      await page.waitForTimeout(120);
-      if (width === 390) assert.ok(await page.locator('nav').evaluate(el => el.getBoundingClientRect().height < 140), 'Mobile navigation must stay compact');
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow: ' + view + ' @ ' + width);
-      await page.locator('#toast').evaluate(el => { el.hidden = true; });
-      await page.screenshot({ path: '.qa/' + view + '-' + width + '.png', fullPage: true });
-    }
-  }
-  results.push('All five views fit desktop and 390px mobile');
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await go('connection');
-  await page.locator('#clearHistory').click();
-  assert.ok(await page.locator('#confirmDialog').isVisible());
-  await page.screenshot({ path: '.qa/confirm-desktop.png' });
-  await page.keyboard.press('Escape');
-  assert.ok(!await page.locator('#confirmDialog').isVisible());
-  results.push('Destructive action confirmation and Escape dismissal');
-  assert.deepEqual(errors, [], 'Browser JavaScript errors');
-  await fs.writeFile('.qa/browser-report.json', JSON.stringify({ ok: true, checks: results }, null, 2));
-  console.log(JSON.stringify({ ok: true, checks: results }, null, 2));
-  // Capture an actual DOM snapshot for independent artifact-design rendering.
-  await go('overview');
-  const css = await fs.readFile('parser_app/static/styles.css', 'utf8');
-  const html = await page.evaluate(css => {
-    const clone = document.documentElement.cloneNode(true);
-    clone.querySelectorAll('script,link[rel=stylesheet]').forEach(el => el.remove());
-    const style = document.createElement('style'); style.textContent = css;
-    clone.querySelector('head').append(style);
-    clone.querySelectorAll('img').forEach(el => el.removeAttribute('src'));
-    return '<!doctype html>\n' + clone.outerHTML;
-  }, css);
-  await fs.writeFile('.qa/overview-snapshot.html', html);
-  await page.close();
-} finally {
-  clearTimeout(deadline);
-  await browser.close();
-  child.kill();
-}
+  await shot('01-accounts-empty');
+  await page.click('#addAccount');await shot('02-session-import');
+  await page.fill('#sessionApiId','12345');await page.fill('#sessionApiHash','a'.repeat(32));await page.check('#sessionForm input[type=checkbox]');
+  await page.click('#importSession');await page.waitForSelector('#importReport:not([hidden])');
+  assert.match(await page.locator('#importReport').innerText(),/добавлен/);
+  await page.click('[data-method=tdata]');await shot('03-tdata-import');
+  await page.fill('#tdataPasscode','synthetic-local-passcode');await page.check('#tdataForm input[type=checkbox]');await page.click('#importTdata');
+  await page.waitForSelector('#importReport:not([hidden])');assert.equal(await page.inputValue('#tdataPasscode'),'');
+  assert.deepEqual(await page.evaluate(()=>window.__nativeCalls.map(x=>x.kind)),['session','tdata']);
+  await page.click('[data-close=accountDialog]');
+  await page.locator('#accountList .account-row').first().getByRole('button',{name:'Проверить',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#accountList').textContent.includes('Подключён'));
+  await shot('04-accounts-populated');
+  await page.click('nav [data-view=proxies]');await shot('05-proxies-empty');
+  await page.click('#addProxy');await shot('06-proxy-dialog');
+  await page.fill('#proxyLabel','Учебный SOCKS5');await page.fill('#proxyHost','127.0.0.1');await page.fill('#proxyPort','1080');await page.fill('#proxyUser','synthetic-user');await page.fill('#proxyPassword','synthetic-password');
+  await page.click('#proxyForm [type=submit]');await page.waitForSelector('#proxyDialog:not([open])',{state:'attached'});
+  await shot('07-proxies-populated');assert.ok(!(await page.locator('#proxyList').innerText()).includes('synthetic-password'));
+  await page.click('nav [data-view=accounts]');await page.locator('#accountList summary').first().click();await shot('08-account-settings');
+  await page.locator('#accountList select').first().selectOption({label:'Учебный SOCKS5'});
+  await page.locator('#accountList .account-row').first().getByRole('button',{name:'Применить',exact:true}).click();
+  await page.locator('#accountList .account-row').first().getByRole('button',{name:'Проверить',exact:true}).click();
+  await page.click('#addAccount');await page.click('[data-method=phone]');await page.click('#beginPhone');
+  await page.waitForSelector('#authDialog[open]');await shot('09-phone-config');
+  await page.fill('#apiId','12345');await page.fill('#apiHash','a'.repeat(32));await page.click('#configForm [type=submit]');await page.waitForSelector('#phoneForm:not([hidden])');
+  await page.fill('#phone','+79990000000');await page.click('#phoneForm [type=submit]');await page.waitForSelector('#codeForm:not([hidden])');await shot('10-phone-code');
+  await page.fill('#code','22222');await page.click('#codeForm [type=submit]');await page.waitForSelector('#passwordForm:not([hidden])');await shot('11-phone-2fa');
+  await page.fill('#password','synthetic');await page.click('#passwordForm [type=submit]');await page.waitForSelector('[data-auth-step=ready]:not([hidden])');await page.click('[data-auth-step=ready] button');
+  await page.click('nav [data-view=tasks]');await page.waitForSelector('#allJobs .job-card');await shot('12-tasks');
+  await page.click('#newTask');await shot('13-new-task');await page.click('#taskDialog .advanced summary');await shot('14-task-filters');
+  await page.fill('#sources','https://example.invalid/not-telegram');await page.click('#createJob');await page.waitForSelector('#taskDialog [data-error]:not([hidden])');
+  const errorVisible=await page.locator('#taskDialog [data-error]').evaluate(el=>{const box=el.getBoundingClientRect();const dialog=el.closest('dialog').getBoundingClientRect();return box.top>=dialog.top && box.bottom<=dialog.bottom;});assert.ok(errorVisible,'Task error must be inside the visible dialog');await shot('15-task-error');
+  await page.fill('#sources','@synthetic_new_channel');await page.click('#createJob');await page.waitForSelector('#taskDialog:not([open])',{state:'attached'});
+  const job=page.locator('#allJobs .job-card').filter({hasText:'@synthetic_new_channel'});await job.getByRole('button',{name:'Пауза',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#allJobs').textContent.includes('На паузе'));
+  await job.getByRole('button',{name:'Отменить',exact:true}).click();await shot('16-confirmation');await page.click('#confirmOk');
+  await page.click('#showResults');await page.waitForSelector('#messageList .message-card');await shot('17-results');
+  assert.equal(await page.evaluate(()=>window.parserInjected),undefined);
+  await page.fill('#search','нет_такого_синтетического_текста');await page.waitForTimeout(450);await page.waitForSelector('#messageList .empty');await shot('18-results-empty');
+  await page.fill('#search','дизайн');await page.waitForTimeout(450);await page.waitForSelector('#messageList .message-card');await page.click('#exportButton');await page.click('[data-close=resultsDialog]');
+  await page.click('#helpButton');await shot('19-help');await page.click('[data-close=view-guide]');
+  await page.setViewportSize({width:390,height:844});
+  for(const view of ['accounts','proxies','tasks']){await page.click('nav [data-view='+view+']');await shot('mobile-'+view);}
+  await page.click('nav [data-view=accounts]');await page.click('#addAccount');await shot('mobile-session');await page.click('[data-method=tdata]');await shot('mobile-tdata');await page.click('[data-close=accountDialog]');
+  await page.click('nav [data-view=proxies]');await page.click('#addProxy');await shot('mobile-proxy-dialog');await page.click('[data-close=proxyDialog]');
+  await page.click('nav [data-view=tasks]');await page.click('#newTask');await shot('mobile-new-task');await page.click('[data-close=taskDialog]');
+  await page.click('#showResults');await shot('mobile-results');await page.click('[data-close=resultsDialog]');
+  await page.setViewportSize({width:1120,height:780});await page.click('nav [data-view=accounts]');
+  await page.waitForFunction(()=>document.querySelector('#toast').hidden);
+  // Self-contained idle DOM snapshot for the mandatory visual capture helper.
+  const css=await readFile('parser_app/static/styles.css','utf8');
+  const snapshot=await page.evaluate(()=>{const clone=document.documentElement.cloneNode(true);clone.querySelectorAll('script,link').forEach(e=>e.remove());return '<!doctype html>'+clone.outerHTML;});
+  await writeFile('.qa/accounts-snapshot.html',snapshot.replace('</head>','<style>'+css+'</style></head>'));
+  assert.deepEqual(errors,[],'JavaScript errors');
+  await writeFile('.qa/browser-report.json',JSON.stringify({ok:true,screenshots:checks,viewportWidths:[1120,390],nativeFileDialogs:'mocked; separately covered by Python bridge tests',liveTelegram:false},null,2));
+  console.log('PASS: three tabs, login/2FA, both import bridges, proxy assignment, task validation/pause/cancel, search/export, XSS, responsive states');
+  await context.close();
+} finally {await browser.close();child.kill();}

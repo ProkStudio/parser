@@ -16,7 +16,8 @@ class Store:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self.connect() as db:
-            if db.execute("PRAGMA user_version").fetchone()[0] > 1:
+            previous_version = db.execute("PRAGMA user_version").fetchone()[0]
+            if previous_version > 2:
                 raise AppError("База создана более новой версией Parser. Обновите приложение.", 500)
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
@@ -44,8 +45,14 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS message_dates ON messages(sent_at DESC, source_id, message_id);
                 CREATE TABLE IF NOT EXISTS runtime (key TEXT PRIMARY KEY, value REAL NOT NULL);
-                PRAGMA user_version=1;
+                CREATE TABLE IF NOT EXISTS account_cursors (
+                    account_id TEXT NOT NULL, source_id INTEGER NOT NULL,
+                    last_id INTEGER NOT NULL, PRIMARY KEY(account_id, source_id)
+                );
+                PRAGMA user_version=2;
             """)
+            if previous_version < 2:
+                db.execute("INSERT OR IGNORE INTO account_cursors SELECT 'legacy',id,last_id FROM sources")
 
     @contextmanager
     def connect(self):
@@ -112,7 +119,14 @@ class Store:
             if job["source_id"] is not None and job["source_id"] != source["id"]:
                 raise AppError("Источник изменился. Создайте новую задачу вместо продолжения старой.", 409)
             if job["upper_id"] is None:
-                cursor = db.execute("SELECT last_id FROM sources WHERE id=?", (source["id"],)).fetchone()[0] if job["options"]["incremental"] else 0
+                cursor = 0
+                if job["options"]["incremental"]:
+                    account_id = job["options"].get("account_id")
+                    if account_id:
+                        saved = db.execute("SELECT last_id FROM account_cursors WHERE account_id=? AND source_id=?", (account_id, source["id"])).fetchone()
+                        cursor = saved[0] if saved else 0
+                    else:
+                        cursor = db.execute("SELECT last_id FROM sources WHERE id=?", (source["id"],)).fetchone()[0]
                 db.execute("UPDATE jobs SET source_id=?,cursor=?,upper_id=?,updated_at=? WHERE id=?", (source["id"], cursor, upper_id, now(), job_id))
         return self.job(job_id)
 
@@ -124,6 +138,9 @@ class Store:
                 media=excluded.media,views=excluded.views,link=excluded.link""", [(source_id, m["message_id"], m["sent_at"], m["text"], m["media"], m["views"], m["link"]) for m in messages])
             db.execute("UPDATE jobs SET cursor=MAX(cursor,?),scanned=scanned+?,matched=matched+?,updated_at=? WHERE id=?", (cursor, scanned, len(messages), now(), job_id))
             db.execute("UPDATE sources SET last_id=MAX(last_id,?),updated_at=? WHERE id=?", (cursor, now(), source_id))
+            options = json.loads(db.execute("SELECT options FROM jobs WHERE id=?", (job_id,)).fetchone()[0])
+            account_id = options.get("account_id", "legacy")
+            db.execute("INSERT INTO account_cursors VALUES(?,?,?) ON CONFLICT(account_id,source_id) DO UPDATE SET last_id=MAX(last_id,excluded.last_id)", (account_id, source_id, cursor))
 
     def state(self, job_id, state, *, error=None, wait_until=None, completion=None):
         with self.connect() as db:
@@ -213,5 +230,5 @@ class Store:
             db.execute("BEGIN IMMEDIATE")
             if db.execute("SELECT 1 FROM jobs WHERE state IN ('queued','running','waiting') LIMIT 1").fetchone():
                 raise AppError("Сначала остановите или отмените активные задачи.", 409)
-            for table in ("messages", "jobs", "sources"):
+            for table in ("messages", "jobs", "sources", "account_cursors"):
                 db.execute("DELETE FROM " + table)
