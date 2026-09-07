@@ -29,7 +29,8 @@ try {
     }};
   });
   await page.goto(`http://127.0.0.1:${info.port}/#key=${info.key}`);
-  await page.waitForFunction(()=>document.querySelector('#version').textContent.includes('0.2.0'));
+  // Locator waits use Playwright's isolated world, not page-side eval polling.
+  await page.locator('#version').filter({hasText:'0.2.0'}).waitFor();
   assert.equal(await page.locator('nav [data-view]').count(),3);
   async function shot(name){
     await page.waitForTimeout(150);
@@ -37,6 +38,7 @@ try {
     assert.equal(overflow,false,name+' horizontal overflow');
     const dialogs=await page.locator('dialog[open]').evaluateAll(ds=>ds.map(d=>({id:d.id,width:d.scrollWidth,client:d.clientWidth})));
     assert.ok(dialogs.every(d=>d.width<=d.client+1),name+' dialog overflow');
+    assert.ok(!(await page.locator('body').innerText()).includes('\ufffd'),name+' damaged UI text');
     await page.screenshot({path:'.qa/'+name+'.png'});checks.push(name);
   }
   await shot('01-accounts-empty');
@@ -50,7 +52,7 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.__nativeCalls.map(x=>x.kind)),['session','tdata']);
   await page.click('[data-close=accountDialog]');
   await page.locator('#accountList .account-row').first().getByRole('button',{name:'Проверить',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('#accountList').textContent.includes('Подключён'));
+  await page.locator('#accountList').filter({hasText:'Подключён'}).waitFor();
   await shot('04-accounts-populated');
   await page.click('nav [data-view=proxies]');await shot('05-proxies-empty');
   await page.click('#addProxy');await shot('06-proxy-dialog');
@@ -72,7 +74,7 @@ try {
   await page.fill('#sources','https://example.invalid/not-telegram');await page.click('#createJob');await page.waitForSelector('#taskDialog [data-error]:not([hidden])');
   const errorVisible=await page.locator('#taskDialog [data-error]').evaluate(el=>{const box=el.getBoundingClientRect();const dialog=el.closest('dialog').getBoundingClientRect();return box.top>=dialog.top && box.bottom<=dialog.bottom;});assert.ok(errorVisible,'Task error must be inside the visible dialog');await shot('15-task-error');
   await page.fill('#sources','@synthetic_new_channel');await page.click('#createJob');await page.waitForSelector('#taskDialog:not([open])',{state:'attached'});
-  const job=page.locator('#allJobs .job-card').filter({hasText:'@synthetic_new_channel'});await job.getByRole('button',{name:'Пауза',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#allJobs').textContent.includes('На паузе'));
+  const job=page.locator('#allJobs .job-card').filter({hasText:'@synthetic_new_channel'});await job.getByRole('button',{name:'Пауза',exact:true}).click();await job.filter({hasText:'На паузе'}).waitFor();
   await job.getByRole('button',{name:'Отменить',exact:true}).click();await shot('16-confirmation');await page.click('#confirmOk');
   await page.click('#showResults');await page.waitForSelector('#messageList .message-card');await shot('17-results');
   assert.equal(await page.evaluate(()=>window.parserInjected),undefined);
@@ -86,7 +88,7 @@ try {
   await page.click('nav [data-view=tasks]');await page.click('#newTask');await shot('mobile-new-task');await page.click('[data-close=taskDialog]');
   await page.click('#showResults');await shot('mobile-results');await page.click('[data-close=resultsDialog]');
   await page.setViewportSize({width:1120,height:780});await page.click('nav [data-view=accounts]');
-  await page.waitForFunction(()=>document.querySelector('#toast').hidden);
+  await page.locator('#toast').waitFor({state:'hidden'});
   // Self-contained idle DOM snapshot for the mandatory visual capture helper.
   const css=await readFile('parser_app/static/styles.css','utf8');
   const snapshot=await page.evaluate(()=>{const clone=document.documentElement.cloneNode(true);clone.querySelectorAll('script,link').forEach(e=>e.remove());return '<!doctype html>'+clone.outerHTML;});

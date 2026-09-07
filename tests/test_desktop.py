@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 import types
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -38,18 +39,18 @@ class VaultTests(unittest.TestCase):
         result=self.vault.import_sessions([self.source,bad,self.source],CONFIG)
         self.assertEqual([r["ok"] for r in result["items"]],[True,False,False]);self.assertEqual(len(self.vault.entries()),1)
     def test_import_does_not_copy_contact_cache_or_injected_endpoint(self):
-        with sqlite3.connect(self.source) as db:
+        with closing(sqlite3.connect(self.source)) as db, db:
             db.execute("INSERT INTO entities VALUES(1,2,'private_username',42,'private_name',1)")
             db.execute("UPDATE sessions SET server_address='attacker.invalid',port=1234")
         item=self.vault.import_sessions([self.source],CONFIG)["items"][0]
-        with sqlite3.connect(self.vault.account_dir(item["id"])/"telegram.session") as db:
+        with closing(sqlite3.connect(self.vault.account_dir(item["id"])/"telegram.session")) as db, db:
             self.assertEqual(db.execute("SELECT count(*) FROM entities").fetchone()[0],0)
             self.assertEqual(db.execute("SELECT server_address,port FROM sessions").fetchone(),("149.154.167.51",443))
     def test_reject_pyrogram_and_empty_auth(self):
         bad=self.root/"pyrogram.session"
-        with sqlite3.connect(bad) as db:db.execute("CREATE TABLE sessions(dc_id INTEGER,auth_key BLOB,api_id INTEGER)")
+        with closing(sqlite3.connect(bad)) as db, db:db.execute("CREATE TABLE sessions(dc_id INTEGER,auth_key BLOB,api_id INTEGER)")
         with self.assertRaisesRegex(AppError,"не формат Telethon"):read_session(bad)
-        with sqlite3.connect(self.source) as db:db.execute("UPDATE sessions SET auth_key=?",(b"",))
+        with closing(sqlite3.connect(self.source)) as db, db:db.execute("UPDATE sessions SET auth_key=?",(b"",))
         with self.assertRaises(AppError):read_session(self.source)
     def test_active_session_and_bad_paths(self):
         side=Path(str(self.source)+"-wal");side.write_bytes(b"synthetic")
