@@ -35,10 +35,10 @@ jobs:
           set -euo pipefail
           if compgen -G '.bootstrap/source-*.b64' > /dev/null; then
             test "$GITHUB_REF" = 'refs/heads/feat/noir-windows-app'
-            git diff --quiet 9f5d761fe83c53db14d3ea83df35e8eac2f35cbf HEAD -- . ':(exclude).bootstrap' ':(exclude).github/workflows/build.yml'
+            git diff --quiet 9f5d761fe83c53db14d3ea83df35e8eac2f35cbf HEAD -- .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools
             python tools/restore_sources.py
-            # Correct the single damaged label found in final visual QA.
-            python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").replace("Импо\ufffd\ufffdтируйте", "Импортируйте"), encoding="utf-8", newline="") for p in (Path("parser_app/static/app.js"), Path("parser_app/static/index.html"))]'
+            # Correct the two damaged labels found in the audited transfer.
+            python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").replace("Импо\ufffd\ufffdтируйте", "Импортируйте").replace("которым \ufffd\ufffdн назначен.", "которым он назначен."), encoding="utf-8", newline="") for p in (Path("parser_app/static/app.js"), Path("parser_app/static/index.html"))]'
             python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"'
             git add .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools
             git rm -- .bootstrap/source-*.b64 .bootstrap/source.sha256
@@ -88,6 +88,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*") if p.suffix in {".js", ".css", ".html"}), "Unexpected damaged UI text"'
           python -m pip install . 2>&1 | tee "$RUNNER_TEMP/parser-unit.log"
           python -m unittest discover -s tests -v 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"
           python -m compileall -q parser_app 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"
@@ -123,6 +124,7 @@ jobs:
         with:
           name: interface-checks
           path: .qa/
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
