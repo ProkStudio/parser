@@ -30,15 +30,27 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { window.showSaveFilePicker = undefined; });
   await page.goto(origin + '/#key=' + ready.key, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => document.getElementById('connectionLabel').textContent === 'Не подключён');
+  await page.locator('#connectionLabel').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.stats').count(), 0, 'Dashboard statistics must be removed');
   assert.equal(await page.evaluate(() => location.hash), '', 'Launch token must be removed from address');
   assert.equal((await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gold'))).trim(), '#dfbd72');
+  // Poll from Node, not page.waitForFunction: keep the real strict CSP active.
+  const until = async (read, expected, label) => {
+    const end = Date.now() + 15000;
+    let actual;
+    do {
+      actual = await read();
+      if (actual === expected) return;
+      await new Promise(resolve => setTimeout(resolve, 75));
+    } while (Date.now() < end);
+    throw new Error(label + ': expected ' + expected + ', got ' + actual);
+  };
   const go = async view => { await page.locator('nav [data-view="' + view + '"]').click(); };
   const shot = async (name, locator) => {
     await page.locator('#toast').evaluate(el => { el.hidden = true; });
     await locator.screenshot({ path: '.qa/guide/' + name + '.png' });
   };
+  await until(() => page.locator('#connectionLabel').textContent(), 'Не подключён', 'Initial connection state');
   await go('connection');
   await shot('connect', page.locator('.connection-grid'));
   await page.locator('#apiId').fill('123456');
@@ -50,7 +62,7 @@ try {
   await page.locator('#codeForm [type=submit]').click();
   await page.locator('#password').fill('synthetic-fixture-only');
   await page.locator('#passwordForm [type=submit]').click();
-  await page.waitForFunction(() => document.getElementById('connectionLabel').textContent === 'Telegram подключён');
+  await until(() => page.locator('#connectionLabel').textContent(), 'Telegram подключён', 'Account connection');
   assert.equal(await page.locator('#password').inputValue(), '');
   assert.equal(await page.locator('#apiHash').inputValue(), '');
   results.push('API settings, code and 2FA UI flow; secret inputs cleared');
@@ -63,21 +75,21 @@ try {
   await page.locator('#dateTo').fill('2026-09-07');
   await shot('collect', page.locator('#jobForm').locator('..'));
   await page.locator('#createJob').click();
-  await page.waitForFunction(() => !document.getElementById('toast').hidden);
+  await until(() => page.locator('#toast').isVisible(), true, 'Job creation notice');
   await go('jobs');
-  await page.waitForFunction(() => document.querySelectorAll('#allJobs .job-card').length === 4);
+  await until(() => page.locator('#allJobs .job-card').count(), 4, 'Created job');
   await shot('jobs', page.locator('#allJobs'));
   const queued = page.locator('#allJobs .job-card').filter({ hasText: '@example_channel' }).filter({ has: page.locator('.badge.queued') });
   await queued.getByRole('button', { name: 'Пауза', exact: true }).click();
-  await page.waitForFunction(() => !document.querySelector('#allJobs .badge.queued'));
+  await until(() => page.locator('#allJobs .badge.queued').count(), 0, 'Paused queue');
   results.push('Create job, list jobs, pause queued job');
   await go('messages');
-  await page.waitForFunction(() => document.querySelectorAll('.message-card').length === 30);
+  await until(() => page.locator('.message-card').count(), 30, 'First results page');
   assert.equal(await page.evaluate(() => window.parserInjected), undefined);
   await page.locator('#nextPage').click();
-  await page.waitForFunction(() => document.querySelectorAll('.message-card').length === 5);
+  await until(() => page.locator('.message-card').count(), 5, 'Second results page');
   await page.locator('#search').fill('Учебный пример');
-  await page.waitForFunction(() => document.querySelectorAll('.message-card').length === 2);
+  await until(() => page.locator('.message-card').count(), 2, 'Filtered results');
   await shot('messages', page.locator('#view-messages .panel'));
   await page.locator('#exportFormat').selectOption('json');
   const downloadPromise = page.waitForEvent('download');
@@ -110,6 +122,7 @@ try {
     for (const view of ['overview', 'messages', 'jobs', 'connection', 'guide']) {
       await go(view);
       await page.waitForTimeout(120);
+      if (width === 390) assert.ok(await page.locator('nav').evaluate(el => el.getBoundingClientRect().height < 140), 'Mobile navigation must stay compact');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow: ' + view + ' @ ' + width);
       await page.locator('#toast').evaluate(el => { el.hidden = true; });
       await page.screenshot({ path: '.qa/' + view + '-' + width + '.png', fullPage: true });

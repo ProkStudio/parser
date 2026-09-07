@@ -2,6 +2,7 @@ name: Build and verify Parser
 on:
   push:
     branches: [main, feat/noir-windows-app]
+    paths-ignore: [.github/workflows/diagnose.yml, '.ci/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +13,7 @@ jobs:
   unit:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -29,6 +31,7 @@ jobs:
   guide:
     name: Browser checks and illustrated guide
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,6 +59,7 @@ jobs:
     name: MSI install, launch and uninstall
     needs: [unit, guide]
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -80,6 +84,7 @@ jobs:
     needs: windows
     if: github.ref == 'refs/heads/feat/noir-windows-app'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       statuses: write
@@ -97,16 +102,16 @@ jobs:
         with:
           name: guide-images
           path: parser_app/static/guide
-      - name: Commit verified sources after the one-time transport bootstrap
-        if: hashFiles('.bootstrap/source.sha256') != ''
+      - name: Save the verified illustrated guide in the source tree
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .gitignore README.md RELEASE_NOTES.md desktop.py pyproject.toml parser_app tests tools
           git add -f parser_app/static/guide/*.webp
-          git rm -r .bootstrap
-          git commit -m 'feat: add black-gold Parser with illustrated guide and MSI'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git rm --ignore-unmatch .ci/previous-run.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs: bundle verified in-app guide screenshots'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
       - name: Record installer verification on the final source commit
         env:
           GH_TOKEN: ${{ github.token }}
