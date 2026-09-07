@@ -1,34 +1,272 @@
-Verified source tree	Restore the checksummed text-only transfer once	﻿2026-09-07T18:20:09.7108553Z ##[group]Run set -euo pipefail
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7109423Z ^[[36;1mset -euo pipefail^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7110137Z ^[[36;1mif compgen -G '.bootstrap/source-*.b64' > /dev/null; then^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7110987Z ^[[36;1m  test "$GITHUB_REF" = 'refs/heads/feat/noir-windows-app'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7112134Z ^[[36;1m  git diff --quiet 9f5d761fe83c53db14d3ea83df35e8eac2f35cbf HEAD -- . ':(exclude).bootstrap' ':(exclude).github/workflows/build.yml'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7113173Z ^[[36;1m  python tools/restore_sources.py^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7113917Z ^[[36;1m  # Correct the single damaged label found in final visual QA.^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7115844Z ^[[36;1m  python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").replace("Импо\ufffd\ufffdтируйте", "Импортируйте"), encoding="utf-8", newline="") for p in (Path("parser_app/static/app.js"), Path("parser_app/static/index.html"))]'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7117856Z ^[[36;1m  python -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7119413Z ^[[36;1m  git add .gitignore README.md RELEASE_NOTES.md desktop.py parser_app pyproject.toml start-windows.bat tests tools^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7120708Z ^[[36;1m  git rm -- .bootstrap/source-*.b64 .bootstrap/source.sha256^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7121494Z ^[[36;1m  git config user.name 'github-actions[bot]'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7122342Z ^[[36;1m  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7123351Z ^[[36;1m  git commit -m 'feat: desktop accounts, proxies and tasks with local session import'^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7124220Z ^[[36;1m  git push origin "HEAD:${GITHUB_REF_NAME}"^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7125177Z ^[[36;1mfi^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7125775Z ^[[36;1mecho "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7126725Z ^[[36;1mgit archive --format=zip --prefix=Parser-0.2.0/ -o "$RUNNER_TEMP/Parser-0.2.0-source.zip" HEAD^[[0m
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7295166Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7295989Z env:
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7296601Z   pythonLocation: /opt/hostedtoolcache/Python/3.13.15/x64
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7297474Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.13.15/x64/lib/pkgconfig
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7298296Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7299052Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7299805Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.13.15/x64
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7300567Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.13.15/x64/lib
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:09.7301235Z ##[endgroup]
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.3373503Z Restored 29 verified source files
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4147635Z Traceback (most recent call last):
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4238854Z   File "<string>", line 1, in <module>
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4239791Z     from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*")), "Unexpected damaged UI text"
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4240651Z                                      ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4241125Z AssertionError: Unexpected damaged UI text
-Verified source tree	Restore the checksummed text-only transfer once	2026-09-07T18:20:10.4301716Z ##[error]Process completed with exit code 1.
+{"conclusion":"failure","headSha":"fc7bed8eae2c76a35650ff0cd8c10eb6b607e51f","status":"completed","url":"https://github.com/ProkStudio/parser/actions/runs/34151849011"}
+
+
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:24.1443603Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 100.9 MiB
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:24.4216927Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 100.9 MiB
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:24.5439151Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 100.9 MiB
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:25.2191231Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 100.9 MiB
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:25.4198562Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 100.9 MiB
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:27.2561168Z Chromium Headless Shell 134.0.6998.35 (playwright build v1161) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1161
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9398316Z node:internal/modules/run_main:123
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9398953Z     triggerUncaughtException(
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9399379Z     ^
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9399592Z 
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9400620Z page.waitForFunction: EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9401832Z 
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9402091Z     at eval (<anonymous>)
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9402831Z     at predicate (eval at evaluate (:234:30), <anonymous>:11:37)
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9403763Z     at next (eval at evaluate (:234:30), <anonymous>:32:31)
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9404292Z     at /home/runner/work/parser/parser/tests/browser.mjs:53:14
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9404592Z 
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9404717Z Node.js v22.23.2
+Three tabs and offline browser scenarios	Verify desktop and narrow-window layouts	2026-09-07T18:30:30.9481196Z ##[error]Process completed with exit code 1.
+Tests (windows-latest, Python 3.13)	Install and run offline tests	﻿2026-09-07T18:30:03.1170562Z ##[group]Run set -euo pipefail
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:03.1171014Z ^[[36;1mset -euo pipefail^[[0m
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:03.1171936Z ^[[36;1mpython -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*") if p.suffix in {".js", ".css", ".html"}), "Unexpected damaged UI text"'^[[0m
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:20.9733687Z test_validation (test_app.DomainTests.test_validation) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.1785762Z test_bounded_scan (test_app.EngineTests.test_bounded_scan) ... Executing <Task finished name='Task-1' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.205 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.3684763Z Executing <Task finished name='Task-2' coro=<EngineTests.test_bounded_scan() done, defined at D:\a\parser\parser\tests\test_app.py:192> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.190 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.3842758Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.4953893Z test_config_never_returned_to_browser (test_app.EngineTests.test_config_never_returned_to_browser) ... Executing <Task finished name='Task-6' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.119 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.5110379Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.6380978Z test_failure_resume_without_duplicates (test_app.EngineTests.test_failure_resume_without_duplicates) ... Executing <Task finished name='Task-11' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.129 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:21.8915286Z Job failure: OSError
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:22.1133930Z Executing <Task finished name='Task-12' coro=<EngineTests.test_failure_resume_without_duplicates() done, defined at D:\a\parser\parser\tests\test_app.py:199> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.461 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:22.1136922Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:22.3027062Z test_flood_wait_can_be_cancelled (test_app.EngineTests.test_flood_wait_can_be_cancelled) ... Executing <Task finished name='Task-16' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.183 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:22.4950306Z Executing <Task pending name='Task-18' coro=<Engine.run_job() running at D:\a\parser\parser\parser_app\engine.py:99> wait_for=<Future pending cb=[Task.task_wakeup()] created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\base_events.py:460> created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\tasks.py:410> took 0.130 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:23.0620406Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:23.1890823Z test_pause_resume_checkpoint (test_app.EngineTests.test_pause_resume_checkpoint) ... Executing <Task finished name='Task-22' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.133 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:23.3318457Z Executing <Task pending name='Task-23' coro=<EngineTests.test_pause_resume_checkpoint() running at D:\a\parser\parser\tests\test_app.py:218> wait_for=<Future pending cb=[Task.task_wakeup()] created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\base_events.py:460> cb=[_run_until_complete_cb() at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\base_events.py:181] created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.127 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:23.9970919Z Executing <Task finished name='Task-23' coro=<EngineTests.test_pause_resume_checkpoint() done, defined at D:\a\parser\parser\tests\test_app.py:211> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.378 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:23.9987552Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:24.8203746Z test_capability_required (test_app.HTTPTests.test_capability_required) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:25.5028467Z test_clear_and_shutdown_require_confirmation (test_app.HTTPTests.test_clear_and_shutdown_require_confirmation) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.2005031Z test_incremental_cursor_is_per_account (test_desktop.ManagerTests.test_incremental_cursor_is_per_account) ... Executing <Task finished name='Task-33' coro=<ManagerTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_desktop.py:106> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.155 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.5799656Z Executing <Task finished name='Task-34' coro=<ManagerTests.test_incremental_cursor_is_per_account() done, defined at D:\a\parser\parser\tests\test_desktop.py:127> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.379 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.5801208Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.7543289Z test_job_account_does_not_follow_ui_selection (test_desktop.ManagerTests.test_job_account_does_not_follow_ui_selection) ... Executing <Task finished name='Task-38' coro=<ManagerTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_desktop.py:106> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.163 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.9312725Z Executing <Task finished name='Task-39' coro=<ManagerTests.test_job_account_does_not_follow_ui_selection() done, defined at D:\a\parser\parser\tests\test_desktop.py:112> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.189 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:31.9443741Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.1030464Z test_missing_account_never_uses_selected_account (test_desktop.ManagerTests.test_missing_account_never_uses_selected_account) ... Executing <Task finished name='Task-43' coro=<ManagerTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_desktop.py:106> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.158 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.2144238Z Job failure: AppError
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.2291917Z Executing <Task finished name='Task-44' coro=<ManagerTests.test_missing_account_never_uses_selected_account() done, defined at D:\a\parser\parser\tests\test_desktop.py:118> result=None created at C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\asyncio\runners.py:101> took 0.120 seconds
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.2294760Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.3558177Z test_cancelled_file_dialog_has_no_mutation (test_desktop.NativeTests.test_cancelled_file_dialog_has_no_mutation) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.4669982Z test_export_cannot_overwrite_vault (test_desktop.NativeTests.test_export_cannot_overwrite_vault) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.5778056Z test_guard_denies_wrong_key_and_external_navigation (test_desktop.NativeTests.test_guard_denies_wrong_key_and_external_navigation) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.7362459Z test_import_while_queue_busy_is_rejected (test_desktop.NativeTests.test_import_while_queue_busy_is_rejected) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.8789898Z test_native_export_uses_save_dialog_and_retains_existing_temporary_file (test_desktop.NativeTests.test_native_export_uses_save_dialog_and_retains_existing_temporary_file) ... Native action failure: FileExistsError
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:32.8791500Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:33.4334367Z test_session_picker_drives_real_local_import (test_desktop.NativeTests.test_session_picker_drives_real_local_import) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:33.5444192Z test_tdata_picker_drives_converter_without_exposing_path (test_desktop.NativeTests.test_tdata_picker_drives_converter_without_exposing_path) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:33.7501667Z test_active_session_and_bad_paths (test_desktop.VaultTests.test_active_session_and_bad_paths) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:34.1941287Z test_clean_session_is_accepted_by_real_telethon_if_installed (test_desktop.VaultTests.test_clean_session_is_accepted_by_real_telethon_if_installed) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:34.6210283Z test_duplicates_and_mixed_import (test_desktop.VaultTests.test_duplicates_and_mixed_import) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:35.1430332Z test_import_does_not_copy_contact_cache_or_injected_endpoint (test_desktop.VaultTests.test_import_does_not_copy_contact_cache_or_injected_endpoint) ... ERROR
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:35.5544516Z test_import_persist_failure_is_rolled_back (test_desktop.VaultTests.test_import_persist_failure_is_rolled_back) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:35.7620195Z test_invalid_proxies (test_desktop.VaultTests.test_invalid_proxies) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:36.2195088Z test_legacy_migration_preserves_files_and_survives_restart (test_desktop.VaultTests.test_legacy_migration_preserves_files_and_survives_restart) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:36.6313295Z test_local_removal_preserves_original (test_desktop.VaultTests.test_local_removal_preserves_original) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:36.8841687Z test_proxy_validation_and_redaction (test_desktop.VaultTests.test_proxy_validation_and_redaction) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.2955586Z test_public_account_snapshot_has_no_keys (test_desktop.VaultTests.test_public_account_snapshot_has_no_keys) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5174525Z test_read_and_copy_without_source_mutation (test_desktop.VaultTests.test_read_and_copy_without_source_mutation) ... D:\a\parser\parser\parser_app\accounts.py:70: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x00000266E3239D50>
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5176265Z   tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5176995Z ResourceWarning: Enable tracemalloc to get the object allocation traceback
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5177939Z D:\a\parser\parser\parser_app\accounts.py:70: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x00000266E3239E40>
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5178886Z   tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.5179583Z ResourceWarning: Enable tracemalloc to get the object allocation traceback
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:37.7707781Z ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.0397259Z test_reject_pyrogram_and_empty_auth (test_desktop.VaultTests.test_reject_pyrogram_and_empty_auth) ... ERROR
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4673858Z test_tdata_validation_and_import_adapter (test_desktop.VaultTests.test_tdata_validation_and_import_adapter) ... ok
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4675571Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4675794Z ======================================================================
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4677248Z ERROR: test_import_does_not_copy_contact_cache_or_injected_endpoint (test_desktop.VaultTests.test_import_does_not_copy_contact_cache_or_injected_endpoint)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4678570Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4679181Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4685852Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 625, in _rmtree_unsafe
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4686661Z     os.unlink(fullname)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4686985Z     ~~~~~~~~~^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4688402Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpw76ryau0\\app\\accounts\\869c14d498c84d96acfa08b4c3ada6d9\\telegram.session'
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4689811Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4690110Z During handling of the above exception, another exception occurred:
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4690866Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4691037Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4691872Z   File "D:\a\parser\parser\tests\test_desktop.py", line 29, in tearDown
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4693092Z     def tearDown(self):self.temp.cleanup()
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4693694Z                        ~~~~~~~~~~~~~~~~~^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4694663Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 956, in cleanup
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4695776Z     self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4696517Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4698605Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 936, in _rmtree
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4699588Z     _shutil.rmtree(name, onexc=onexc)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4700068Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4700875Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 790, in rmtree
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4701646Z     return _rmtree_unsafe(path, onexc)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4702492Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 629, in _rmtree_unsafe
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4703246Z     onexc(os.unlink, fullname, err)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4703648Z     ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4704355Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 911, in onexc
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4705083Z     _os.unlink(path)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4705389Z     ~~~~~~~~~~^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4706956Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpw76ryau0\\app\\accounts\\869c14d498c84d96acfa08b4c3ada6d9\\telegram.session'
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4708469Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4708658Z ======================================================================
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4709552Z ERROR: test_reject_pyrogram_and_empty_auth (test_desktop.VaultTests.test_reject_pyrogram_and_empty_auth)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4710495Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4711378Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4712114Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 625, in _rmtree_unsafe
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4712825Z     os.unlink(fullname)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4713117Z     ~~~~~~~~~^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4714134Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpock7orlz\\pyrogram.session'
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4715146Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4715410Z During handling of the above exception, another exception occurred:
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4716061Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4716195Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4716760Z   File "D:\a\parser\parser\tests\test_desktop.py", line 29, in tearDown
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4717311Z     def tearDown(self):self.temp.cleanup()
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4717713Z                        ~~~~~~~~~~~~~~~~~^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4718358Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 956, in cleanup
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4719146Z     self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4719727Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4720442Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 936, in _rmtree
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4721085Z     _shutil.rmtree(name, onexc=onexc)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4721454Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4722072Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 790, in rmtree
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4722714Z     return _rmtree_unsafe(path, onexc)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4723358Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\shutil.py", line 629, in _rmtree_unsafe
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4724016Z     onexc(os.unlink, fullname, err)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4724374Z     ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4725003Z   File "C:\hostedtoolcache\windows\Python\3.13.15\x64\Lib\tempfile.py", line 911, in onexc
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4725598Z     _os.unlink(path)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4725850Z     ~~~~~~~~~~^^^^^^
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4726819Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpock7orlz\\pyrogram.session'
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4727811Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4728215Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4728675Z Ran 53 tests in 17.495s
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4728865Z 
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.4728966Z FAILED (errors=2)
+Tests (windows-latest, Python 3.13)	Install and run offline tests	2026-09-07T18:30:38.5549246Z ##[error]Process completed with exit code 1.
+Tests (windows-latest, Python 3.11)	Install and run offline tests	﻿2026-09-07T18:30:38.9574019Z ##[group]Run set -euo pipefail
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9574499Z ^[[36;1mset -euo pipefail^[[0m
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9575308Z ^[[36;1mpython -c 'from pathlib import Path; assert all("\ufffd" not in p.read_text(encoding="utf-8") for p in Path("parser_app/static").glob("*.*") if p.suffix in {".js", ".css", ".html"}), "Unexpected damaged UI text"'^[[0m
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9576207Z ^[[36;1mpython -m pip install . 2>&1 | tee "$RUNNER_TEMP/parser-unit.log"^[[0m
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9576726Z ^[[36;1mpython -m unittest discover -s tests -v 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"^[[0m
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9577269Z ^[[36;1mpython -m compileall -q parser_app 2>&1 | tee -a "$RUNNER_TEMP/parser-unit.log"^[[0m
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9637876Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9638308Z env:
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9638587Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:38.9639026Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.7229191Z test_reject_unsafe_sources (test_app.DomainTests.test_reject_unsafe_sources) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.7230013Z test_source_formats (test_app.DomainTests.test_source_formats) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.7230674Z test_validation (test_app.DomainTests.test_validation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.8494662Z test_bounded_scan (test_app.EngineTests.test_bounded_scan) ... Executing <Task finished name='Task-1' coro=<EngineTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_app.py:179> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.109 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.9757373Z Executing <Task finished name='Task-2' coro=<EngineTests.test_bounded_scan() done, defined at D:\a\parser\parser\tests\test_app.py:192> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.109 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:54.9758425Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:55.0545024Z test_config_never_returned_to_browser (test_app.EngineTests.test_config_never_returned_to_browser) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:55.2440053Z test_failure_resume_without_duplicates (test_app.EngineTests.test_failure_resume_without_duplicates) ... Job failure: OSError
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:55.4025606Z Executing <Task finished name='Task-12' coro=<EngineTests.test_failure_resume_without_duplicates() done, defined at D:\a\parser\parser\tests\test_app.py:199> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.281 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:55.4026805Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:56.1148751Z test_flood_wait_can_be_cancelled (test_app.EngineTests.test_flood_wait_can_be_cancelled) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:56.7659743Z test_pause_resume_checkpoint (test_app.EngineTests.test_pause_resume_checkpoint) ... Executing <Task finished name='Task-23' coro=<EngineTests.test_pause_resume_checkpoint() done, defined at D:\a\parser\parser\tests\test_app.py:211> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.203 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:56.7795745Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:57.3497984Z test_capability_required (test_app.HTTPTests.test_capability_required) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:57.9218902Z test_clear_and_shutdown_require_confirmation (test_app.HTTPTests.test_clear_and_shutdown_require_confirmation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:58.5053390Z test_empty_export_is_valid (test_app.HTTPTests.test_empty_export_is_valid) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:59.0749761Z test_host_and_origin_protection (test_app.HTTPTests.test_host_and_origin_protection) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:30:59.6451166Z test_static_security_headers (test_app.HTTPTests.test_static_security_headers) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:00.2161327Z test_write_validation (test_app.HTTPTests.test_write_validation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:01.6373529Z test_resume_and_history_modes (test_app.StoreTests.test_resume_and_history_modes) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:01.7323150Z test_imported_logout_is_blocked (test_desktop.ManagerTests.test_imported_logout_is_blocked) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:01.8271077Z test_incremental_cursor_is_per_account (test_desktop.ManagerTests.test_incremental_cursor_is_per_account) ... Executing <Task finished name='Task-33' coro=<ManagerTests.asyncSetUp() done, defined at D:\a\parser\parser\tests\test_desktop.py:106> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.109 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.0331131Z Executing <Task finished name='Task-34' coro=<ManagerTests.test_incremental_cursor_is_per_account() done, defined at D:\a\parser\parser\tests\test_desktop.py:127> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.188 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.0332746Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.2387465Z test_job_account_does_not_follow_ui_selection (test_desktop.ManagerTests.test_job_account_does_not_follow_ui_selection) ... Executing <Task finished name='Task-39' coro=<ManagerTests.test_job_account_does_not_follow_ui_selection() done, defined at D:\a\parser\parser\tests\test_desktop.py:112> result=None created at C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\asyncio\runners.py:100> took 0.110 seconds
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.2405721Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.3968968Z test_missing_account_never_uses_selected_account (test_desktop.ManagerTests.test_missing_account_never_uses_selected_account) ... Job failure: AppError
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.3969900Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.4761422Z test_cancelled_file_dialog_has_no_mutation (test_desktop.NativeTests.test_cancelled_file_dialog_has_no_mutation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.5256194Z test_export_cannot_overwrite_vault (test_desktop.NativeTests.test_export_cannot_overwrite_vault) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.5868841Z test_guard_denies_wrong_key_and_external_navigation (test_desktop.NativeTests.test_guard_denies_wrong_key_and_external_navigation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.6817289Z test_import_while_queue_busy_is_rejected (test_desktop.NativeTests.test_import_while_queue_busy_is_rejected) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.7451412Z test_native_export_uses_save_dialog_and_retains_existing_temporary_file (test_desktop.NativeTests.test_native_export_uses_save_dialog_and_retains_existing_temporary_file) ... Native action failure: FileExistsError
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:02.7452623Z ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.0140175Z test_session_picker_drives_real_local_import (test_desktop.NativeTests.test_session_picker_drives_real_local_import) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.0655901Z test_tdata_picker_drives_converter_without_exposing_path (test_desktop.NativeTests.test_tdata_picker_drives_converter_without_exposing_path) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.1723412Z test_active_session_and_bad_paths (test_desktop.VaultTests.test_active_session_and_bad_paths) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.4881010Z test_clean_session_is_accepted_by_real_telethon_if_installed (test_desktop.VaultTests.test_clean_session_is_accepted_by_real_telethon_if_installed) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.7255490Z test_duplicates_and_mixed_import (test_desktop.VaultTests.test_duplicates_and_mixed_import) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:03.9627646Z test_import_does_not_copy_contact_cache_or_injected_endpoint (test_desktop.VaultTests.test_import_does_not_copy_contact_cache_or_injected_endpoint) ... ERROR
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:04.1698435Z test_import_persist_failure_is_rolled_back (test_desktop.VaultTests.test_import_persist_failure_is_rolled_back) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:04.2789627Z test_invalid_proxies (test_desktop.VaultTests.test_invalid_proxies) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:04.5003421Z test_legacy_migration_preserves_files_and_survives_restart (test_desktop.VaultTests.test_legacy_migration_preserves_files_and_survives_restart) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:04.7060330Z test_local_removal_preserves_original (test_desktop.VaultTests.test_local_removal_preserves_original) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:04.8488303Z test_proxy_validation_and_redaction (test_desktop.VaultTests.test_proxy_validation_and_redaction) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.0858836Z test_public_account_snapshot_has_no_keys (test_desktop.VaultTests.test_public_account_snapshot_has_no_keys) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.3069026Z test_read_and_copy_without_source_mutation (test_desktop.VaultTests.test_read_and_copy_without_source_mutation) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.4494138Z test_reject_pyrogram_and_empty_auth (test_desktop.VaultTests.test_reject_pyrogram_and_empty_auth) ... ERROR
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6708176Z test_tdata_validation_and_import_adapter (test_desktop.VaultTests.test_tdata_validation_and_import_adapter) ... ok
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6708987Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6709183Z ======================================================================
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6710183Z ERROR: test_import_does_not_copy_contact_cache_or_injected_endpoint (test_desktop.VaultTests.test_import_does_not_copy_contact_cache_or_injected_endpoint)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6711483Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6712105Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6719484Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 632, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6720231Z     os.unlink(fullname)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6721459Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmp9d2hihr6\\app\\accounts\\c3c37b7e5529461d8a40d6ff59573414\\telegram.session'
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6722702Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6722953Z During handling of the above exception, another exception occurred:
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6723351Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6723476Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6724004Z   File "D:\a\parser\parser\tests\test_desktop.py", line 29, in tearDown
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6724547Z     def tearDown(self):self.temp.cleanup()
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6724903Z                        ^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6725611Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 947, in cleanup
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6726908Z     self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6728017Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 929, in _rmtree
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6728639Z     _shutil.rmtree(name, onerror=onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6729255Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 787, in rmtree
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6729854Z     return _rmtree_unsafe(path, onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6730190Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6730789Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 629, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6732597Z     _rmtree_unsafe(fullname, onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6733159Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 629, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6733741Z     _rmtree_unsafe(fullname, onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6734336Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 634, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6734948Z     onerror(os.unlink, fullname, sys.exc_info())
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6735574Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 893, in onerror
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6736158Z     _os.unlink(path)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6737319Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmp9d2hihr6\\app\\accounts\\c3c37b7e5529461d8a40d6ff59573414\\telegram.session'
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6738461Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6738602Z ======================================================================
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6739322Z ERROR: test_reject_pyrogram_and_empty_auth (test_desktop.VaultTests.test_reject_pyrogram_and_empty_auth)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6740124Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6740574Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6741181Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 632, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6742001Z     os.unlink(fullname)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6742923Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpx40qk1xv\\pyrogram.session'
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6743843Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6744076Z During handling of the above exception, another exception occurred:
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6744464Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6744580Z Traceback (most recent call last):
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6745079Z   File "D:\a\parser\parser\tests\test_desktop.py", line 29, in tearDown
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6745582Z     def tearDown(self):self.temp.cleanup()
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6746198Z                        ^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6746753Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 947, in cleanup
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6747459Z     self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6748160Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 929, in _rmtree
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6748748Z     _shutil.rmtree(name, onerror=onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6749315Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 787, in rmtree
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6749878Z     return _rmtree_unsafe(path, onerror)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6750188Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6750750Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\shutil.py", line 634, in _rmtree_unsafe
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6751373Z     onerror(os.unlink, fullname, sys.exc_info())
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6751981Z   File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\tempfile.py", line 893, in onerror
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6752529Z     _os.unlink(path)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6753423Z PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpx40qk1xv\\pyrogram.session'
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6755497Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6755687Z ----------------------------------------------------------------------
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6756105Z Ran 53 tests in 10.952s
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6756291Z 
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.6756398Z FAILED (errors=2)
+Tests (windows-latest, Python 3.11)	Install and run offline tests	2026-09-07T18:31:05.7406887Z ##[error]Process completed with exit code 1.
